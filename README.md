@@ -144,11 +144,12 @@ replay** → supply che converge a `S* = 2500 DMN`.
 
 ## Testnet 🌐
 
-La prima testnet pubblica di DAIMON è **online**. Un nodo seed conia blocchi 24/7;
-chiunque può avviare un nodo e sincronizzarsi attraverso Internet.
+La prima testnet pubblica di DAIMON è **online**. Un nodo seed fa da punto di
+incontro 24/7 (relay + persistenza); chiunque può avviare un nodo, minare e
+sincronizzarsi attraverso Internet.
 
 ```
-seed node:  <SEED_IP>:9101
+seed node:  168.119.231.109:9101
 ```
 
 Il seed fa **solo relay** (non mina: i ToS dei provider vietano il mining) e
@@ -159,11 +160,11 @@ sta sul tuo PC e su chiunque si unisca.
 
 ```bash
 # avvia un nodo locale che si connette al seed, si sincronizza e mina
-daimon node --port 9102 --peers <SEED_IP>:9101 --mine 1 --data-dir ./dati
+daimon node --port 9102 --peers 168.119.231.109:9101 --mine 1 --data-dir ./dati
 
 # in un'altra shell: censimento del tuo nodo e del seed — stessa altezza, stesso stato
 daimon census --connect 127.0.0.1:9102
-daimon census --connect <SEED_IP>:9101
+daimon census --connect 168.119.231.109:9101
 ```
 
 **Mettere online un proprio seed** (Ubuntu 24.04, idempotente — vedi `deploy/`):
@@ -207,9 +208,9 @@ ostile (`daimon/network/node.py`, `protocol.py`):
 - [x] **Milestone 5** — block explorer web (stdlib, `daimon explorer`): panoramica/blocchi, genomi, alberi genealogici (viventi + fossili), fossili e royalty.
 - [x] **Hardening + CI** — difese di rete (validazione, rate limit, ban, timeout, fuzzing) e GitHub Actions su ogni push/PR.
 - [x] **Persistenza** — store append-only su disco (JSONL, scritture atomiche), replay+validazione all'avvio, recupero da corruzione; il seed conserva la catena attraverso i riavvii.
-- [ ] **Testnet** — primo nodo seed remoto su VPS (systemd, `deploy/`, solo relay): la rete online attraverso Internet.
+- [x] **Testnet** — primo nodo seed remoto online su VPS (systemd, `deploy/`, solo relay + persistenza): **`168.119.231.109:9101`**. Sync e convergenza verificate attraverso Internet (stesso `state_hash`), persistenza sopravvissuta a un reboot del server.
 
-**61 test verdi**, eseguiti in CI su Python 3.10 e 3.12.
+**61 test verdi**, eseguiti in CI su Python 3.10 e 3.12. **Testnet pubblica online.**
 
 ## Licenza
 

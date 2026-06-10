@@ -86,6 +86,8 @@ def cmd_census(args):
     st = chain.tip_state
     print(f"── CENSIMENTO @ {args.connect} ──")
     print(f"  altezza      : {chain.height}")
+    print(f"  tip hash     : {chain.tip_hash}")
+    print(f"  state_hash   : {st.hash()}")
     print(f"  difficoltà   : {chain.blocks[-1]['difficulty']}")
     print(f"  supply       : {fmt(st.supply())}  ({st.supply()*100//S_STAR if S_STAR else 0}% di S*)")
     print(f"  daimon vivi  : {len(st.daimons)}   fossili: {len(st.fossils)}")
