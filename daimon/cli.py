@@ -131,6 +131,11 @@ def cmd_task(args):
             {"daimon": args.daimon, "payload": args.payload, "payment": dmn_to_gocce(args.payment)})
 
 
+def cmd_explorer(args):
+    from .explorer import run as explorer_run
+    explorer_run(args.connect, args.demo, args.host, args.port)
+
+
 def cmd_node(args):
     async def run():
         wallet = Wallet.load(args.wallet) if args.wallet else Wallet()
@@ -211,6 +216,13 @@ def build_parser() -> argparse.ArgumentParser:
     tk.add_argument("--payload", required=True)
     tk.add_argument("--payment", default="12", help="pagamento in DMN")
     tk.set_defaults(func=cmd_task)
+
+    ex = sub.add_parser("explorer", help="avvia il block explorer web")
+    ex.add_argument("--connect", default=None, help="host:port di un nodo (altrimenti --demo)")
+    ex.add_argument("--demo", action="store_true", help="catena d'esempio in memoria")
+    ex.add_argument("--host", default="127.0.0.1")
+    ex.add_argument("--port", type=int, default=8080)
+    ex.set_defaults(func=cmd_explorer)
 
     return ap
 

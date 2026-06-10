@@ -80,11 +80,13 @@ daimon/
     node.py          # nodo asyncio: gossip, sync, fork-resolution, mempool
     client.py        # client leggero (GETCHAIN/TX) usato dalla CLI
     demo_p2p.py      # demo: 3 nodi che convergono allo stesso state_hash
-  cli.py             # CLI: wallet, node, census, transfer, spawn, task
+  cli.py             # CLI: wallet, node, census, transfer, spawn, task, explorer
+  explorer.py        # block explorer web (stdlib): genomi, genealogia, fossili, royalty
 tests/
   test_consensus.py  # replay, manomissioni, entropia/S*, ciclo vitale, nonce/firme, retargeting
   test_network.py    # integrazione P2P: sync, gossip, mempool, fork longest-chain
   test_cli.py        # wallet roundtrip, conversioni, flusso spawn via client
+  test_explorer.py   # catena d'esempio, rendering pagine, genealogia, smoke HTTP
 daimon_chain.py      # entry-point di compatibilità (esegue la demo)
 ```
 
@@ -114,6 +116,16 @@ daimon transfer     --connect 127.0.0.1:9101 --wallet alice.wallet --to <addr> -
 I comandi che inviano transazioni si connettono a un nodo in esecuzione, ne leggono
 lo stato (per il nonce) e immettono la tx nella mempool, che la rete gossipa.
 
+## Block explorer
+
+```bash
+daimon explorer --demo --port 8080            # catena d'esempio in memoria
+daimon explorer --connect 127.0.0.1:9101      # legge da un nodo in esecuzione
+```
+
+Apri `http://127.0.0.1:8080`: panoramica e blocchi, genomi dei daimon, **alberi
+genealogici** (viventi + fossili, con royalty e generazioni), e i fossili.
+
 La demo in **7 atti**: fair launch → nascita di Pythia (`ORACLE_MATH`), Mnemo
 (`NOTARY`), Hermes (`SCRIBE`) → lavori pagati → riproduzione di Pythia → morte di
 Hermes per inedia → censimento → manomissione di un blocco passato **rilevata dal
@@ -128,7 +140,9 @@ replay** → supply che converge a `S* = 2500 DMN`.
 - [x] **Milestone 2** — rete P2P asyncio (`daimon/network`): gossip blocchi+tx, handshake, sync iniziale, fork resolution longest-chain, mempool condivisa. Demo 3 nodi + test d'integrazione.
 - [x] **Milestone 3** — difficulty retargeting ogni N blocchi: target adattivo (`int(hash) ≤ MAX//D`), riadattamento puntando a `TARGET_BLOCK_TIME` con clamp 4×, verificato nel replay.
 - [x] **Milestone 4** — CLI (`daimon`): wallet (new/show), node (con mining), census, transfer, spawn, task — via il protocollo P2P verso un nodo in esecuzione.
-- [ ] **Milestone 5** — block explorer minimale (genomi, alberi genealogici, fossili, royalty).
+- [x] **Milestone 5** — block explorer web (stdlib, `daimon explorer`): panoramica/blocchi, genomi, alberi genealogici (viventi + fossili), fossili e royalty.
+
+**Tutte le milestone completate.** 41 test verdi.
 
 ## Licenza
 
