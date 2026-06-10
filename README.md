@@ -63,11 +63,29 @@ Transazioni firmate **ECDSA secp256k1** con **nonce per account** (anti-replay).
 Tipi: `TRANSFER`, `SPAWN`, `TASK`. I wallet umani hanno chiavi; i daimon no — la
 loro identità è il loro genoma.
 
-## Demo
+## Struttura
+
+```
+daimon/
+  config.py          # parametri di consenso (in gocce, interi)
+  demo.py            # demo in 7 atti (separata dal nucleo)
+  core/
+    crypto.py        # serializzazione canonica, sha, Wallet ECDSA, firme tx
+    minds.py         # run_mind: ORACLE_MATH, NOTARY, SCRIBE (deterministiche)
+    tx.py            # genoma, identità daimon, handler TRANSFER/SPAWN/TASK
+    state.py         # State + le sei fasi del blocco
+    chain.py         # process_block (consenso), PoW, Blockchain, replay/validazione
+tests/
+  test_consensus.py  # replay, manomissioni, entropia/S*, ciclo vitale, nonce/firme
+daimon_chain.py      # entry-point di compatibilità (esegue la demo)
+```
+
+## Demo & test
 
 ```bash
-pip install ecdsa
-python daimon_chain.py
+pip install -e ".[dev]"     # oppure: pip install ecdsa pytest
+python -m daimon.demo        # (equivalente: python daimon_chain.py)
+pytest                       # 25 test sul consenso
 ```
 
 La demo in **7 atti**: fair launch → nascita di Pythia (`ORACLE_MATH`), Mnemo
@@ -80,7 +98,7 @@ replay** → supply che converge a `S* = 2500 DMN`.
 ## Roadmap
 
 - [x] **Genesi** — catena funzionante: PoW SHA-256, entropia, ciclo vitale dei daimon.
-- [ ] **Milestone 1** — ristrutturazione in package (`core/`, `network/`, `cli/`) + suite `pytest` sul consenso.
+- [x] **Milestone 1** — ristrutturazione in package (`daimon/core`, `config`, demo separata) + suite `pytest` sul consenso (25 test).
 - [ ] **Milestone 2** — rete P2P asyncio: gossip blocchi+tx, sync, fork resolution longest-chain, mempool condivisa.
 - [ ] **Milestone 3** — difficulty retargeting ogni N blocchi.
 - [ ] **Milestone 4** — CLI: nodo, wallet, transfer, spawn, task, census.

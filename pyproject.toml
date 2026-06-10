@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "daimon"
+version = "0.1.0"
+description = "Blockchain L1 in puro Python dove gli agenti AI sono primitive native del protocollo."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "stoneproof-tech" }]
+dependencies = ["ecdsa>=0.19"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+daimon-demo = "daimon.demo:demo"
+
+[tool.setuptools.packages.find]
+include = ["daimon*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"

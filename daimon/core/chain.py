@@ -1,0 +1,147 @@
+# -*- coding: utf-8 -*-
+"""process_block (unica funzione di consenso), il blocco, il PoW e la catena.
+
+process_block è usata IDENTICA dal mining e dalla validazione. La validazione è un
+replay totale dalla genesi: ricostruisce lo stato e verifica PoW, linkage,
+ricevute e state_hash di ogni blocco. Qualunque manomissione produce divergenza.
+"""
+
+import time
+
+from .crypto import canonical, sha
+from .state import (
+    State,
+    phase_entropy, phase_transactions, phase_emission,
+    phase_metabolism, phase_reproduction, phase_death,
+)
+from ..config import POW_PREFIX, GENESIS_PREV, MANIFESTO, ConsensusError
+
+
+def process_block(prev_state: State, index: int, miner: str, txs: list,
+                  is_genesis: bool = False):
+    """
+    Applica un blocco allo stato precedente → (nuovo_stato, ricevute).
+    Ordine INVIOLABILE: entropia → tx → emissione → metabolismo → riproduzione → morte.
+    Funzione PURA: stesso input ⇒ stesso output. Nessun I/O, nessun float.
+    """
+    state = prev_state.copy()
+    receipts: list = []
+
+    if is_genesis:
+        # Genesi: nessuna moneta creata (fair launch, zero premine), solo il manifesto.
+        return state, receipts
+
+    phase_entropy(state)                               # 1. ENTROPIA
+    phase_transactions(state, txs, receipts, index)    # 2. TRANSAZIONI
+    phase_emission(state, miner)                       # 3. EMISSIONE
+    phase_metabolism(state)                            # 4. METABOLISMO
+    phase_reproduction(state, receipts, index)         # 5. RIPRODUZIONE
+    phase_death(state, receipts, index)                # 6. MORTE
+    state.prune()
+    return state, receipts
+
+
+# ── Blocco & PoW ────────────────────────────────────────────────────────────
+
+def header_pow_hash(header: dict) -> str:
+    return sha(canonical(header))
+
+
+def mine_nonce(header_wo_nonce: dict):
+    """Proof-of-Work: trova nonce tale che l'hash dell'header inizi con POW_PREFIX."""
+    nonce = 0
+    while True:
+        header = dict(header_wo_nonce)
+        header["nonce"] = nonce
+        h = header_pow_hash(header)
+        if h.startswith(POW_PREFIX):
+            return nonce, h
+        nonce += 1
+
+
+class Blockchain:
+    def __init__(self):
+        self.blocks: list = []
+        self.states: list = []  # states[i] = stato DOPO il blocco i
+        self._build_genesis()
+
+    def _build_genesis(self) -> None:
+        state, receipts = process_block(State(), 0, "GENESIS", [], is_genesis=True)
+        hdr = {
+            "index": 0, "timestamp": 0, "prev_hash": GENESIS_PREV, "miner": "GENESIS",
+            "txs": [], "receipts": receipts, "state_hash": state.hash(),
+            "manifesto": MANIFESTO,
+        }
+        hdr["nonce"], _ = mine_nonce(hdr)
+        self.blocks.append(hdr)
+        self.states.append(state)
+
+    @property
+    def tip_state(self) -> State:
+        return self.states[-1]
+
+    @property
+    def height(self) -> int:
+        return self.blocks[-1]["index"]
+
+    def mine_block(self, miner_addr: str, txs: list | None = None, timestamp=None) -> dict:
+        """Conia un nuovo blocco sopra il tip, usando process_block (logica di consenso)."""
+        txs = txs or []
+        index = self.height + 1
+        prev = self.blocks[-1]
+        new_state, receipts = process_block(self.tip_state, index, miner_addr, txs)
+        hdr = {
+            "index": index,
+            "timestamp": int(timestamp if timestamp is not None else time.time()),
+            "prev_hash": header_pow_hash(prev),
+            "miner": miner_addr,
+            "txs": txs,
+            "receipts": receipts,
+            "state_hash": new_state.hash(),
+        }
+        hdr["nonce"], _ = mine_nonce(hdr)
+        self.blocks.append(hdr)
+        self.states.append(new_state)
+        return hdr
+
+    @staticmethod
+    def validate_chain(blocks: list):
+        """Replay totale: ricostruisce lo stato e verifica PoW, linkage, ricevute, state_hash."""
+        if not blocks or blocks[0]["index"] != 0:
+            return False, "manca il blocco di genesi"
+        g = blocks[0]
+        if g.get("manifesto") != MANIFESTO:
+            return False, "manifesto di genesi manomesso"
+        if g["prev_hash"] != GENESIS_PREV:
+            return False, "prev_hash di genesi non nullo"
+        if not header_pow_hash(g).startswith(POW_PREFIX):
+            return False, "PoW di genesi non valida"
+        gstate, greceipts = process_block(State(), 0, "GENESIS", [], is_genesis=True)
+        if g["state_hash"] != gstate.hash():
+            return False, "state_hash di genesi non corrisponde"
+        if canonical(g["receipts"]) != canonical(greceipts):
+            return False, "ricevute di genesi manomesse"
+
+        state = gstate
+        for i in range(1, len(blocks)):
+            blk = blocks[i]
+            prev = blocks[i - 1]
+            if blk["index"] != i:
+                return False, f"indice fuori sequenza al blocco {i}"
+            if blk["prev_hash"] != header_pow_hash(prev):
+                return False, f"prev_hash spezzato al blocco {i} (catena manomessa)"
+            if not header_pow_hash(blk).startswith(POW_PREFIX):
+                return False, f"PoW non valida al blocco {i}"
+            try:
+                new_state, receipts = process_block(state, i, blk["miner"], blk["txs"])
+            except ConsensusError as exc:
+                return False, f"consenso violato al blocco {i}: {exc}"
+            if canonical(receipts) != canonical(blk["receipts"]):
+                return False, f"ricevute manomesse al blocco {i}"
+            if new_state.hash() != blk["state_hash"]:
+                return False, f"state_hash manomesso al blocco {i} (stato divergente dal replay)"
+            state = new_state
+        return True, "catena integra"
+
+    def is_valid(self):
+        return self.validate_chain(self.blocks)
