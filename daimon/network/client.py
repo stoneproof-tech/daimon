@@ -8,10 +8,11 @@ oppure immette una transazione (TX) nella mempool del nodo, che la gossipa.
 import asyncio
 
 from . import protocol as p
+from ..config import NET_MAX_MSG_BYTES
 
 # Stesso motivo del nodo: il messaggio CHAIN è una riga JSON che può superare i
-# 64 KB di default di asyncio su catene lunghe.
-STREAM_LIMIT = 256 * 1024 * 1024  # 256 MiB
+# 64 KB di default di asyncio su catene lunghe. Allineato al tetto del nodo.
+STREAM_LIMIT = NET_MAX_MSG_BYTES
 
 
 async def fetch_chain(host: str, port: int, timeout: float = 15.0) -> list:

@@ -51,6 +51,21 @@ S_STAR = (EMISSION * DEMURRAGE_DEN) // (DEMURRAGE_DEN - DEMURRAGE_NUM)  # = 2500
 # Menti riconosciute dal protocollo.
 KNOWN_MINDS = ("ORACLE_MATH", "NOTARY", "SCRIBE")
 
+# ── Rete: limiti di sicurezza del nodo (la porta del seed riceve traffico ostile) ──
+# Difensivi, non di consenso: un nodo può irrigidirli senza rompere la rete.
+NET_MAX_MSG_BYTES     = 32 * 1024 * 1024  # tetto a una singola riga/messaggio (anti OOM)
+NET_MAX_CHAIN_BLOCKS  = 50_000            # blocchi massimi accettati in un messaggio CHAIN
+NET_MAX_TXS_PER_BLOCK = 10_000            # tx massime in un blocco ricevuto
+NET_MAX_PEERS         = 256               # connessioni totali simultanee
+NET_MAX_CONN_PER_IP   = 64                # connessioni simultanee dallo stesso IP
+NET_RATE_WINDOW       = 10.0              # finestra (s) del rate limiting per connessione
+NET_RATE_MAX          = 300               # messaggi massimi per finestra per connessione
+NET_HANDSHAKE_TIMEOUT = 10.0             # s entro cui deve arrivare il primo messaggio
+NET_READ_TIMEOUT      = 30.0             # s di inattività oltre cui si chiude la connessione
+NET_MAX_STRIKES       = 5                 # infrazioni per IP prima del ban temporaneo
+NET_BAN_SECONDS       = 60.0             # durata del ban temporaneo di un IP
+NET_MAX_MEMPOOL       = 10_000           # tx massime tenute in mempool
+
 
 class ConsensusError(Exception):
     """Violazione delle regole di consenso: il blocco è invalido."""
