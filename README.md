@@ -1,5 +1,9 @@
 # DAIMON
 
+[![CI](https://github.com/stoneproof-tech/daimon/actions/workflows/ci.yml/badge.svg)](https://github.com/stoneproof-tech/daimon/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-7ee0c0.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+
 > *Πάντα ῥεῖ — nessuno si bagna due volte nello stesso fiume.*
 > *Qui la materia inerte evapora e solo ciò che lavora persiste.*
 > *Wörgl 1932 → Daimon 2026. Fair launch: nessun emittente, solo la sorgente.*
@@ -87,6 +91,9 @@ tests/
   test_network.py    # integrazione P2P: sync, gossip, mempool, fork longest-chain
   test_cli.py        # wallet roundtrip, conversioni, flusso spawn via client
   test_explorer.py   # catena d'esempio, rendering pagine, genealogia, smoke HTTP
+  test_security.py   # validazione protocollo, fuzzing, flood→ban, resilienza
+deploy/              # daimon-node.service (systemd) + setup_vps.sh (Ubuntu 24.04)
+.github/workflows/   # ci.yml — pytest a ogni push/PR (Python 3.10 e 3.12)
 daimon_chain.py      # entry-point di compatibilità (esegue la demo)
 ```
 
@@ -96,7 +103,7 @@ daimon_chain.py      # entry-point di compatibilità (esegue la demo)
 pip install -e ".[dev]"     # oppure: pip install ecdsa pytest
 python -m daimon.demo        # (equivalente: python daimon_chain.py)
 python -m daimon.network.demo_p2p   # 3 nodi P2P che convergono
-pytest                       # 36 test (consenso + retargeting + rete + CLI)
+pytest                       # 53 test (consenso, retargeting, rete, CLI, explorer, sicurezza)
 ```
 
 ## CLI
@@ -166,6 +173,20 @@ sul server**, configura `ufw` (solo SSH + `9101`) e avvia il servizio systemd
 > Nota: il nodo tiene la catena in memoria; a un riavvio riparte dalla genesi e si
 > ri-sincronizza dalla rete (la catena più lunga vince). Per una testnet va bene.
 
+### Sicurezza di rete
+
+La porta del seed è esposta a Internet, quindi il nodo è temprato contro traffico
+ostile (`daimon/network/node.py`, `protocol.py`):
+
+- **validazione rigorosa** di ogni messaggio (tipo, schema, dimensioni) *prima* che
+  tocchi la chain; input malformato ⇒ disconnessione e infrazione registrata;
+- **tetti**: dimensione massima per messaggio e per catena ricevuta, peer totali e
+  per singolo IP, dimensione della mempool;
+- **rate limiting** per connessione e **ban temporaneo** dell'IP dopo N infrazioni;
+- **timeout** su handshake e su ogni lettura (nessuna attesa senza scadenza);
+- il nodo **non crasha mai** per input esterno — verificato da `test_security.py`
+  (byte casuali, JSON malformati, messaggi giganti, flood) con chain sempre integra.
+
 ## Roadmap
 
 - [x] **Genesi** — catena funzionante: PoW SHA-256, entropia, ciclo vitale dei daimon.
@@ -174,9 +195,10 @@ sul server**, configura `ufw` (solo SSH + `9101`) e avvia il servizio systemd
 - [x] **Milestone 3** — difficulty retargeting ogni N blocchi: target adattivo (`int(hash) ≤ MAX//D`), riadattamento puntando a `TARGET_BLOCK_TIME` con clamp 4×, verificato nel replay.
 - [x] **Milestone 4** — CLI (`daimon`): wallet (new/show), node (con mining), census, transfer, spawn, task — via il protocollo P2P verso un nodo in esecuzione.
 - [x] **Milestone 5** — block explorer web (stdlib, `daimon explorer`): panoramica/blocchi, genomi, alberi genealogici (viventi + fossili), fossili e royalty.
-- [x] **Testnet** — primo nodo seed remoto su VPS (systemd, `deploy/`): la rete è online attraverso Internet.
+- [x] **Hardening + CI** — difese di rete (validazione, rate limit, ban, timeout, fuzzing) e GitHub Actions su ogni push/PR.
+- [ ] **Testnet** — primo nodo seed remoto su VPS (systemd, `deploy/`): la rete online attraverso Internet.
 
-**Tutte le milestone completate.** 43 test verdi.
+**53 test verdi**, eseguiti in CI su Python 3.10 e 3.12.
 
 ## Licenza
 
