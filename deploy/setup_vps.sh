@@ -42,10 +42,10 @@ else
 fi
 
 # ── 2. Dipendenze di sistema ─────────────────────────────────────────────────
-log "Installazione pacchetti (python3, venv, pip, git, ufw)"
+log "Installazione pacchetti (python3, venv, pip, git)"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y python3 python3-venv python3-pip git ufw
+apt-get install -y python3 python3-venv python3-pip git
 
 # ── 3. Codice: clone o aggiornamento ─────────────────────────────────────────
 log "Repository in ${APP_DIR}"
@@ -81,12 +81,20 @@ chown "${RUN_USER}:${RUN_USER}" "${WALLET}"
 chmod 600 "${WALLET}"
 NODE_ADDR="$(sudo -u "${RUN_USER}" "${APP_DIR}/.venv/bin/daimon" wallet show --wallet "${WALLET}" | awk '{print $2}')"
 
-# ── 6. Firewall: solo SSH + porta del nodo ───────────────────────────────────
-log "Firewall ufw (SSH + ${NODE_PORT}/tcp)"
-ufw allow OpenSSH        >/dev/null 2>&1 || ufw allow 22/tcp >/dev/null
-ufw allow "${NODE_PORT}/tcp" >/dev/null
-ufw --force enable
-ufw status verbose | sed 's/^/    /'
+# ── 6. Firewall: SICURO sui server condivisi/di produzione ───────────────────
+# NON attiviamo MAI ufw e NON tocchiamo le regole esistenti: su una macchina con
+# altri servizi (es. Traefik su 80/443) attivarlo con default-deny, o riscriverne
+# le regole, taglierebbe quei servizi. Se ufw è già ATTIVO ci limitiamo ad
+# AGGIUNGERE la porta del nodo; se è inattivo o assente, non lo tocchiamo.
+log "Firewall (modalità sicura per server condivisi)"
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+  echo "    ufw ATTIVO: aggiungo solo 'allow ${NODE_PORT}/tcp' (regole esistenti intatte)."
+  ufw allow "${NODE_PORT}/tcp" >/dev/null
+  ufw status | grep -Ei "status|${NODE_PORT}" | sed 's/^/    /'
+else
+  echo "    ufw INATTIVO o assente: NON lo attivo (eviterei di tagliare altri servizi)."
+  echo "    Se è presente un firewall del provider (cloud firewall), apri ${NODE_PORT}/tcp lì."
+fi
 
 # ── 7. Servizio systemd ──────────────────────────────────────────────────────
 log "Servizio systemd daimon-node"
