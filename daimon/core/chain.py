@@ -72,10 +72,19 @@ def next_difficulty(blocks: list) -> int:
     if next_index < RETARGET_INTERVAL or next_index % RETARGET_INTERVAL != 0:
         return prev_diff
     ref = blocks[-RETARGET_INTERVAL]                       # confine precedente della finestra
+    intervals = RETARGET_INTERVAL
+    if ref["index"] == 0:
+        # PRIMA finestra: la genesi porta GENESIS_TS, un'epoca FISSA incisa nel
+        # protocollo, NON un tempo di mining reale. Con l'orologio reale `actual`
+        # si gonfia di anni e schiaccia la difficoltà al floor del clamp (artefatto).
+        # Ancoriamo quindi al blocco 1 e contiamo solo gli intervalli davvero
+        # cronometrati (block1→last), con `expected` proporzionato di conseguenza.
+        ref = blocks[1]
+        intervals = last["index"] - ref["index"]          # = RETARGET_INTERVAL - 1
     actual = last["timestamp"] - ref["timestamp"]
     if actual <= 0:
         actual = 1
-    expected = RETARGET_INTERVAL * TARGET_BLOCK_TIME
+    expected = intervals * TARGET_BLOCK_TIME
     # Blocchi troppo veloci (actual < expected) ⇒ difficoltà sale; troppo lenti ⇒ scende.
     new_diff = prev_diff * expected // actual
     lo, hi = prev_diff // RETARGET_CLAMP, prev_diff * RETARGET_CLAMP

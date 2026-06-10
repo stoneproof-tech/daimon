@@ -15,7 +15,7 @@ import pytest
 from daimon.config import (
     DMN, EMISSION, S_STAR, MANIFESTO, ConsensusError,
     MIN_ENDOWMENT, ROYALTY_MAX_BP, DEMURRAGE_NUM, DEMURRAGE_DEN, UPKEEP,
-    BASE_DIFFICULTY, RETARGET_INTERVAL, TARGET_BLOCK_TIME, GENESIS_TS,
+    BASE_DIFFICULTY, RETARGET_INTERVAL, TARGET_BLOCK_TIME, GENESIS_TS, RETARGET_CLAMP,
 )
 from daimon.core import (
     Wallet, Blockchain, State, process_block,
@@ -387,3 +387,51 @@ def test_difficolta_dichiarata_manomessa_rifiutata():
     forged[5]["nonce"], _ = mine_nonce({k: v for k, v in forged[5].items() if k != "nonce"})
     ok, msg = Blockchain.validate_chain(forged)
     assert not ok and "difficolt" in msg
+
+
+def test_prima_finestra_a_ritmo_target_non_tocca_il_floor():
+    """SCENARIO REALE: genesi 2023 (GENESIS_TS), blocchi minati OGGI (2026) al
+    ritmo target. Prima del fix la genesi (epoca fissa) faceva esplodere `actual`
+    di anni, schiacciando la difficoltà al floor del clamp (BASE//RETARGET_CLAMP).
+    Ancorando la prima finestra al blocco 1 la difficoltà resta ≈ quella base."""
+    oggi = 1_749_000_000   # ~giugno 2026, molto dopo GENESIS_TS (2023)
+    assert oggi > GENESIS_TS + 86_400 * 365  # davvero "anni" dopo la genesi
+    chain = Blockchain()
+    miner = Wallet()
+    # Ritmo ESATTAMENTE al target, ma con orologio reale (t0 = oggi, non GENESIS_TS).
+    _mine_window(chain, miner, step=TARGET_BLOCK_TIME, t0=oggi)
+    confine = chain.blocks[RETARGET_INTERVAL]
+    floor = BASE_DIFFICULTY // RETARGET_CLAMP
+    assert confine["difficulty"] != floor, "regressione: prima finestra di nuovo al floor"
+    # A ritmo target la difficoltà non deve muoversi dalla base.
+    assert confine["difficulty"] == BASE_DIFFICULTY
+    assert satisfies_pow(confine)
+    ok, msg = chain.is_valid()
+    assert ok, msg
+
+
+def test_finestre_successive_restano_corrette():
+    """Le finestre DOPO la prima usano il confine reale (blocks[-RETARGET_INTERVAL],
+    mai la genesi) e continuano a rispondere come prima: ritmo lento ⇒ scende,
+    e una finestra veloce dopo una al target ⇒ sale. Tutto con orologio reale."""
+    oggi = 1_749_000_000
+    chain = Blockchain()
+    miner = Wallet()
+    # 1ª finestra al target (resta base), poi 2ª finestra a ritmo LENTO (10x) ⇒ scende.
+    _mine_window(chain, miner, step=TARGET_BLOCK_TIME, t0=oggi)
+    primo_confine = chain.blocks[RETARGET_INTERVAL]
+    assert primo_confine["difficulty"] == BASE_DIFFICULTY
+    t_dopo_primo = chain.blocks[-1]["timestamp"]
+    _mine_window(chain, miner, step=TARGET_BLOCK_TIME * 10, t0=t_dopo_primo)
+    secondo_confine = chain.blocks[2 * RETARGET_INTERVAL]
+    assert secondo_confine["difficulty"] < primo_confine["difficulty"], "2ª finestra lenta deve abbassare"
+
+    # Specularmente: 2ª finestra VELOCE (dopo una al target) ⇒ sale sopra la base.
+    chain2 = Blockchain()
+    miner2 = Wallet()
+    _mine_window(chain2, miner2, step=TARGET_BLOCK_TIME, t0=oggi)
+    t2 = chain2.blocks[-1]["timestamp"]
+    _mine_window(chain2, miner2, step=max(1, TARGET_BLOCK_TIME // 10), t0=t2)
+    assert chain2.blocks[2 * RETARGET_INTERVAL]["difficulty"] > BASE_DIFFICULTY, "2ª finestra veloce deve alzare"
+    ok, msg = chain2.is_valid()
+    assert ok, msg
