@@ -9,8 +9,10 @@ Type=simple
 User=daimon
 Group=daimon
 WorkingDirectory=/opt/daimon
-# Il wallet del nodo nasce e resta sul server (mai trasmesso). Mining attivo (--mine 1).
-ExecStart=/opt/daimon/.venv/bin/daimon node --name seed --host 0.0.0.0 --port 9101 --mine 1 --wallet /var/lib/daimon/node.wallet
+# Il seed fa SOLO relay (--mine 0): i ToS dei provider vietano il mining.
+# La catena è persistita su disco (--data-dir): sopravvive ai riavvii.
+# Il wallet del nodo nasce e resta sul server (mai trasmesso).
+ExecStart=/opt/daimon/.venv/bin/daimon node --name seed --host 0.0.0.0 --port 9101 --mine 0 --wallet /var/lib/daimon/node.wallet --data-dir /var/lib/daimon
 Restart=always
 RestartSec=3
 # Logging su journald
