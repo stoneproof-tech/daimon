@@ -71,7 +71,8 @@ loro identità è il loro genoma.
 
 ```
 daimon/
-  config.py          # parametri di consenso (in gocce, interi)
+  config.py          # parametri di consenso (gocce) + limiti di rete
+  store.py           # persistenza: store append-only JSONL, scritture atomiche, replay
   demo.py            # demo in 7 atti (separata dal nucleo)
   core/
     crypto.py        # serializzazione canonica, sha, Wallet ECDSA, firme tx
@@ -92,6 +93,7 @@ tests/
   test_cli.py        # wallet roundtrip, conversioni, flusso spawn via client
   test_explorer.py   # catena d'esempio, rendering pagine, genealogia, smoke HTTP
   test_security.py   # validazione protocollo, fuzzing, flood→ban, resilienza
+  test_persistence.py# store↔catena, riavvio (stesso state_hash), recupero da corruzione
 deploy/              # daimon-node.service (systemd) + setup_vps.sh (Ubuntu 24.04)
 .github/workflows/   # ci.yml — pytest a ogni push/PR (Python 3.10 e 3.12)
 daimon_chain.py      # entry-point di compatibilità (esegue la demo)
@@ -103,7 +105,7 @@ daimon_chain.py      # entry-point di compatibilità (esegue la demo)
 pip install -e ".[dev]"     # oppure: pip install ecdsa pytest
 python -m daimon.demo        # (equivalente: python daimon_chain.py)
 python -m daimon.network.demo_p2p   # 3 nodi P2P che convergono
-pytest                       # 53 test (consenso, retargeting, rete, CLI, explorer, sicurezza)
+pytest                       # 61 test (consenso, retargeting, rete, CLI, explorer, sicurezza, persistenza)
 ```
 
 ## CLI
@@ -149,11 +151,15 @@ chiunque può avviare un nodo e sincronizzarsi attraverso Internet.
 seed node:  <SEED_IP>:9101
 ```
 
+Il seed fa **solo relay** (non mina: i ToS dei provider vietano il mining) e
+**persiste la catena su disco**, quindi la conserva attraverso i riavvii. Il mining
+sta sul tuo PC e su chiunque si unisca.
+
 **Unirsi alla rete** (dal tuo PC, dopo `pip install -e .`):
 
 ```bash
-# avvia un nodo locale che si connette al seed e si sincronizza
-daimon node --port 9102 --peers <SEED_IP>:9101 --mine 1
+# avvia un nodo locale che si connette al seed, si sincronizza e mina
+daimon node --port 9102 --peers <SEED_IP>:9101 --mine 1 --data-dir ./dati
 
 # in un'altra shell: censimento del tuo nodo e del seed — stessa altezza, stesso stato
 daimon census --connect 127.0.0.1:9102
@@ -168,10 +174,14 @@ curl -fsSL https://raw.githubusercontent.com/stoneproof-tech/daimon/main/deploy/
 
 Lo script installa le dipendenze, crea un venv, genera **un wallet nuovo che resta
 sul server**, configura `ufw` (solo SSH + `9101`) e avvia il servizio systemd
-(`deploy/daimon-node.service`, utente non-root, `Restart=always`).
+(`deploy/daimon-node.service`, utente non-root, `Restart=always`, `--mine 0`,
+`--data-dir /var/lib/daimon`).
 
-> Nota: il nodo tiene la catena in memoria; a un riavvio riparte dalla genesi e si
-> ri-sincronizza dalla rete (la catena più lunga vince). Per una testnet va bene.
+> Persistenza: il seed salva ogni blocco (minato dalla rete e ricevuto) in
+> `/var/lib/daimon/chain.jsonl` (append-only, scritture atomiche con `fsync`).
+> All'avvio ricarica e **valida l'intera catena col replay** prima di servire; una
+> coda di file corrotta viene troncata all'ultimo blocco valido. Dopo un riavvio del
+> server, il servizio riparte da solo e **conserva la catena**.
 
 ### Sicurezza di rete
 
@@ -196,9 +206,10 @@ ostile (`daimon/network/node.py`, `protocol.py`):
 - [x] **Milestone 4** — CLI (`daimon`): wallet (new/show), node (con mining), census, transfer, spawn, task — via il protocollo P2P verso un nodo in esecuzione.
 - [x] **Milestone 5** — block explorer web (stdlib, `daimon explorer`): panoramica/blocchi, genomi, alberi genealogici (viventi + fossili), fossili e royalty.
 - [x] **Hardening + CI** — difese di rete (validazione, rate limit, ban, timeout, fuzzing) e GitHub Actions su ogni push/PR.
-- [ ] **Testnet** — primo nodo seed remoto su VPS (systemd, `deploy/`): la rete online attraverso Internet.
+- [x] **Persistenza** — store append-only su disco (JSONL, scritture atomiche), replay+validazione all'avvio, recupero da corruzione; il seed conserva la catena attraverso i riavvii.
+- [ ] **Testnet** — primo nodo seed remoto su VPS (systemd, `deploy/`, solo relay): la rete online attraverso Internet.
 
-**53 test verdi**, eseguiti in CI su Python 3.10 e 3.12.
+**61 test verdi**, eseguiti in CI su Python 3.10 e 3.12.
 
 ## Licenza
 

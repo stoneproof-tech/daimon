@@ -84,3 +84,34 @@ async def _flow():
 
 def test_cli_flow_spawn_via_client():
     asyncio.run(_flow())
+
+
+def test_cli_node_mina_e_persiste(tmp_path):
+    """Regressione: `daimon node --mine 1 --data-dir` deve minare E persistere.
+
+    (I test unitari chiamano mine_once direttamente; questo esercita il comando CLI
+    completo, dove un errore di wiring del loop di mining non emergerebbe altrimenti.)
+    """
+    import os
+    import time
+    wallet = tmp_path / "w.wallet"
+    r = subprocess.run([sys.executable, "-m", "daimon.cli", "wallet", "new", "--out", str(wallet)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    env = dict(os.environ, PYTHONUTF8="1", PYTHONUNBUFFERED="1")
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "daimon.cli", "node", "--name", "t", "--port", "9181",
+         "--mine", "1", "--wallet", str(wallet), "--data-dir", str(tmp_path)],
+        env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        time.sleep(4.5)
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    chain_file = tmp_path / "chain.jsonl"
+    assert chain_file.exists(), "il nodo CLI con --mine deve persistere i blocchi su disco"
+    lines = [ln for ln in chain_file.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    assert len(lines) >= 1, "almeno un blocco dev'essere stato minato e persistito"

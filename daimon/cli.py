@@ -139,10 +139,13 @@ def cmd_explorer(args):
 def cmd_node(args):
     async def run():
         wallet = Wallet.load(args.wallet) if args.wallet else Wallet()
-        node = Node(args.name, args.host, args.port, parse_peers(args.peers), wallet)
+        node = Node(args.name, args.host, args.port, parse_peers(args.peers),
+                    wallet, data_dir=args.data_dir)
         await node.start()
         print(f"nodo '{node.name}' in ascolto su {node.host}:{node.port}")
         print(f"  indirizzo miner: {node.address}")
+        if args.data_dir:
+            print(f"  dati persistiti in: {args.data_dir}  (tip @ {node.chain.height})")
         if args.peers:
             print(f"  peer: {args.peers}")
         if args.mine:
@@ -155,7 +158,11 @@ def cmd_node(args):
                         await node.mine_once()
                     except Exception as exc:  # noqa: BLE001
                         print(f"  [mining] errore: {exc}")
-            asyncio.create_task(miner())
+            # IMPORTANTE: conservare il riferimento al task, altrimenti il GC può
+            # eliminarlo e il mining non parte mai (footgun di asyncio.create_task).
+            node._tasks.append(asyncio.create_task(miner()))
+        else:
+            print("  mining DISATTIVO (solo relay)")
         await asyncio.Event().wait()  # gira finché interrotto
 
     try:
@@ -183,8 +190,9 @@ def build_parser() -> argparse.ArgumentParser:
     nd.add_argument("--host", default="127.0.0.1")
     nd.add_argument("--port", type=int, default=9101)
     nd.add_argument("--peers", default="", help="lista host:port separati da virgola")
-    nd.add_argument("--mine", type=float, default=0, help="conia un blocco ogni N secondi (0=off)")
+    nd.add_argument("--mine", type=float, default=0, help="conia un blocco ogni N secondi (0=off, solo relay)")
     nd.add_argument("--wallet", default=None, help="wallet del miner (altrimenti effimero)")
+    nd.add_argument("--data-dir", default=None, help="cartella di persistenza della catena (JSONL)")
     nd.set_defaults(func=cmd_node)
 
     cs = sub.add_parser("census", help="censimento dei daimon dal nodo")

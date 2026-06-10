@@ -32,7 +32,8 @@ from . import protocol as p
 
 class Node:
     def __init__(self, name: str, host: str = "127.0.0.1", port: int = 0,
-                 peers=(), wallet: Wallet | None = None, **limits):
+                 peers=(), wallet: Wallet | None = None, data_dir: str | None = None,
+                 **limits):
         self.name = name
         self.host = host
         self.port = port
@@ -40,6 +41,11 @@ class Node:
         self.wallet = wallet or Wallet()
         self.address = self.wallet.address
         self.chain = Blockchain()
+        # Persistenza opzionale: store append-only su disco (vedi daimon/store.py).
+        self.store = None
+        if data_dir:
+            from ..store import BlockStore
+            self.store = BlockStore(f"{data_dir.rstrip('/')}/chain.jsonl")
         self.mempool: dict = {}
         self.writers: set = set()
         self.server = None
@@ -71,6 +77,13 @@ class Node:
 
     # ── avvio / arresto ───────────────────────────────────────────────────────
     async def start(self) -> None:
+        # Carica e VALIDA la catena persistita PRIMA di servire (replay totale).
+        if self.store is not None:
+            from ..store import load_chain
+            self.chain, info = load_chain(self.store)
+            if info["loaded"]:
+                self.log(f"catena ripristinata dal disco: {info['loaded']} blocchi "
+                         f"(tip @ {self.chain.height})")
         self.server = await asyncio.start_server(
             self._on_inbound, self.host, self.port, limit=self.max_msg_bytes)
         self.port = self.server.sockets[0].getsockname()[1]
@@ -243,6 +256,8 @@ class Node:
         async with self._lock:
             adopted, why = self.chain.maybe_replace_chain(blocks)
         if adopted:
+            if self.store is not None:
+                self.store.rewrite(self.chain.blocks[1:])  # fork adottato: riscrivi atomico
             self.log(f"sync: {why} (tip @ {self.chain.height})")
             self._purge_mempool()
             await self.broadcast(p.m_hello(self.chain.height, self.chain.tip_hash))
@@ -251,6 +266,8 @@ class Node:
         async with self._lock:
             ok, why = self.chain.add_external_block(block)
         if ok:
+            if self.store is not None:
+                self.store.append(block)
             self.log(f"blocco {block['index']} accettato dal gossip")
             self._purge_mempool()
             await self.broadcast(p.m_block(block), exclude=writer)
@@ -307,6 +324,8 @@ class Node:
         async with self._lock:
             txs = self._select_txs()
             block = self.chain.mine_block(self.address, txs, timestamp=timestamp)
+            if self.store is not None:
+                self.store.append(block)
         self._purge_mempool()
         self.log(f"ho coniato il blocco {block['index']} ({len(txs)} tx) → gossip")
         await self.broadcast(p.m_block(block))
