@@ -7,7 +7,7 @@ from .core import (
     make_tx, make_genome, daimon_id, daimon_address, run_mind,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "config", "Wallet", "Blockchain", "State", "process_block",
