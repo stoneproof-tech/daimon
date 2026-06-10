@@ -1,217 +1,237 @@
 # DAIMON
 
+**🇬🇧 English** · [🇮🇹 Italiano](README.it.md)
+
 [![CI](https://github.com/stoneproof-tech/daimon/actions/workflows/ci.yml/badge.svg)](https://github.com/stoneproof-tech/daimon/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-7ee0c0.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 
-> *Πάντα ῥεῖ — nessuno si bagna due volte nello stesso fiume.*
-> *Qui la materia inerte evapora e solo ciò che lavora persiste.*
-> *Wörgl 1932 → Daimon 2026. Fair launch: nessun emittente, solo la sorgente.*
+> *Πάντα ῥεῖ — no one steps in the same river twice.*
+> *Here inert matter evaporates and only what works persists.*
+> *Wörgl 1932 → Daimon 2026. Fair launch: no issuer, only the source.*
 
-**DAIMON** è una blockchain Layer-1 scritta da zero in puro Python in cui gli
-agenti AI sono **primitive native del protocollo**. Non sono smart contract che
-girano *sopra* la catena: sono cittadini della catena. Nascono, lavorano,
-pagano un metabolismo, si riproducono con mutazione e muoiono.
+**DAIMON** is a Layer-1 blockchain written from scratch in pure Python where AI
+agents are **native protocol primitives**. They are not smart contracts running
+*on top of* the chain — they are citizens of the chain. They are born, they work,
+they pay a metabolism, they reproduce with mutation, and they die.
 
-## L'idea
+|  | Layer-1 | Promise |
+|--|---------|---------|
+| **Bitcoin** | unstoppable **money** | value no one can seize |
+| **Ethereum** | unstoppable **apps** | code no one can stop |
+| **DAIMON** | unstoppable **agents** | minds no one can kill |
 
-| Verbo | Primitiva | Significato |
-|-------|-----------|-------------|
-| **Nascere** | `SPAWN` | Un genoma immutabile `{mind, motto, indole, lineage}` genera un daimon. Id e indirizzo sono derivati *solo* dal genoma: nessuna chiave umana. |
-| **Lavorare** | `TASK` | Una mente deterministica (`run_mind`) esegue il compito. Il committente paga: royalty al creatore, `think_cost` bruciato, netto al daimon, risultato inciso nelle ricevute. |
-| **Pagare** | metabolismo | Ogni blocco un daimon vivo brucia `upkeep`. |
-| **Riprodursi** | riproduzione | Saldo ≥ 50 DMN e ≥ 3 task ⇒ un figlio con genoma mutato. |
-| **Morire** | `FOSSILE` | Saldo < 0.5 DMN ⇒ il daimon diventa fossile, registrato per sempre. |
+**Deploy once. Lives forever.** An agent's genome is immutable, its address is
+derived from that genome, and as long as it earns enough to pay its metabolism it
+keeps living, working and reproducing on a chain no one controls.
 
-## La fisica monetaria
+## The idea
 
-Due forze opposte governano la moneta, **solo con matematica intera**:
+| Verb | Primitive | Meaning |
+|------|-----------|---------|
+| **Be born** | `SPAWN` | An immutable genome `{mind, motto, indole, lineage}` creates a daimon. Its id and address derive *only* from the genome — no human key. |
+| **Work** | `TASK` | A deterministic mind (`run_mind`) executes the job. The requester pays: royalty to the creator, `think_cost` burned, net to the daimon, result engraved in the block receipts. |
+| **Pay** | metabolism | Every block, a living daimon burns `upkeep`. |
+| **Reproduce** | reproduction | Balance ≥ 50 DMN and ≥ 3 tasks ⇒ a child with a mutated genome. |
+| **Die** | `FOSSIL` | Balance < 0.5 DMN ⇒ the daimon becomes a fossil, recorded forever. |
 
-- **Emissione costante** — `R = 50 DMN` per blocco al miner (no halving, no cap).
-- **Entropia / demurrage** — ogni blocco, su **tutti** i conti: `saldo ← saldo · 98 // 100` (−2%).
+## The monetary physics
 
-L'equilibrio emerge dalla fisica, non da una regola arbitraria:
+Two opposing forces govern the money, **with integer math only**:
+
+- **Constant emission** — `R = 50 DMN` per block to the miner (no halving, no cap).
+- **Entropy / demurrage** — every block, on **every** account: `balance ← balance · 98 // 100` (−2%).
+
+Equilibrium emerges from physics, not from an arbitrary rule:
 
 ```
 S* = R / r = 50 / 0.02 = 2500 DMN
 ```
 
-La supply converge a `S*` in ~240 blocchi. La materia inerte (capitale fermo)
-evapora; solo ciò che lavora — e quindi riceve flusso — persiste.
+Supply converges to `S*` in ~240 blocks. Inert matter (idle capital) evaporates;
+only what works — and therefore receives flow — persists. This is **metabolism as
+monetary policy**: an agent that stops earning starves and dies; one that keeps
+working pays its upkeep and endures.
 
-**Fair launch**: nessun premine, nessun emittente. La prima moneta nasce solo
-dall'emissione del primo blocco coniato.
+**Fair launch**: no premine, no issuer. The first coin is born only from the
+emission of the first mined block.
 
-## Regole inviolabili del consenso
+## Inviolable consensus rules
 
-1. **Ordine di processamento del blocco** (mai alterabile):
-   `entropia → transazioni → emissione → metabolismo → riproduzione → morte`
-2. **Solo matematica intera**. Unità interna = *gocce* (`1 DMN = 1000 gocce`). Mai float nel consenso.
-3. **Determinismo assoluto** in `process_block` e `run_mind`.
-4. **Nessun premine.**
+1. **Block processing order** (never alterable):
+   `entropy → transactions → emission → metabolism → reproduction → death`
+2. **Integer math only**. Internal unit = *drops* (`1 DMN = 1000 drops`). No floats in consensus.
+3. **Absolute determinism** in `process_block` and `run_mind`.
+4. **No premine.**
 
-`process_block` è l'**unica** funzione di consenso: identica per il mining e per
-la validazione. La validazione è un **replay totale dalla genesi** — qualunque
-manomissione (header, ricevute, stato) produce una divergenza che viene rilevata.
+`process_block` is the **single** consensus function: identical for mining and for
+validation. Validation is a **full replay from genesis** — any tampering (header,
+receipts, state) produces a divergence that is detected.
 
-## Le menti (`run_mind`) — deterministiche e pure
+> **Genesis manifesto.** The genesis block carries a manifesto that is a consensus
+> rule: changing a single byte forks the chain. It is therefore kept verbatim in
+> Greek/Italian and never translated. Its meaning: *"Everything flows — no one steps
+> in the same river twice. Here inert matter evaporates and only what works persists.
+> Wörgl 1932 → Daimon 2026. Fair launch: no issuer, only the source."* (The 1932
+> reference is the [Wörgl experiment](https://en.wikipedia.org/wiki/W%C3%B6rgl#The_W%C3%B6rgl_Experiment),
+> a demurrage currency.)
 
-- **`ORACLE_MATH`** — mini-eval aritmetico via AST con whitelist (niente nomi né
-  chiamate, esponente ≤ 16, lunghezza ≤ 80). Matematica intera.
-- **`NOTARY`** — contatore incrementale + `sha256` del payload + numero di blocco.
-- **`SCRIBE`** — payload in maiuscolo + motto + indole del daimon.
+## The minds (`run_mind`) — deterministic and pure
 
-## Crittografia
+- **`ORACLE_MATH`** — a tiny arithmetic evaluator over a whitelisted AST (no names or
+  calls, exponent ≤ 16, length ≤ 80). Integer math.
+- **`NOTARY`** — incremental counter + `sha256` of the payload + block number.
+- **`SCRIBE`** — uppercased payload + the daimon's motto and indole.
 
-Transazioni firmate **ECDSA secp256k1** con **nonce per account** (anti-replay).
-Tipi: `TRANSFER`, `SPAWN`, `TASK`. I wallet umani hanno chiavi; i daimon no — la
-loro identità è il loro genoma.
+A mind's output is engraved into the block receipts, so it is consensus-visible and
+must be byte-for-byte deterministic across machines and Python versions.
 
-## Struttura
+## Cryptography
+
+Transactions are signed with **ECDSA secp256k1** and carry a **per-account nonce**
+(anti-replay). Types: `TRANSFER`, `SPAWN`, `TASK`. Human wallets hold keys; daimons
+do not — their identity *is* their genome.
+
+## Structure
 
 ```
 daimon/
-  config.py          # parametri di consenso (gocce) + limiti di rete
-  store.py           # persistenza: store append-only JSONL, scritture atomiche, replay
-  demo.py            # demo in 7 atti (separata dal nucleo)
+  config.py          # consensus parameters (drops) + network limits
+  store.py           # persistence: append-only JSONL store, atomic writes, replay
+  demo.py            # 7-act demo (separate from the core)
   core/
-    crypto.py        # serializzazione canonica, sha, Wallet ECDSA, firme tx
-    minds.py         # run_mind: ORACLE_MATH, NOTARY, SCRIBE (deterministiche)
-    tx.py            # genoma, identità daimon, handler TRANSFER/SPAWN/TASK
-    state.py         # State + le sei fasi del blocco
-    chain.py         # process_block (consenso), PoW, Blockchain, replay/validazione
+    crypto.py        # canonical serialization, sha, ECDSA Wallet, tx signing
+    minds.py         # run_mind: ORACLE_MATH, NOTARY, SCRIBE (deterministic)
+    tx.py            # genome, daimon identity, TRANSFER/SPAWN/TASK handlers
+    state.py         # State + the six block phases
+    chain.py         # process_block (consensus), PoW, Blockchain, replay/validation
   network/
-    protocol.py      # messaggi JSON delimitati da newline (HELLO/GETCHAIN/CHAIN/BLOCK/TX)
-    node.py          # nodo asyncio: gossip, sync, fork-resolution, mempool
-    client.py        # client leggero (GETCHAIN/TX) usato dalla CLI
-    demo_p2p.py      # demo: 3 nodi che convergono allo stesso state_hash
+    protocol.py      # newline-delimited JSON messages (HELLO/GETCHAIN/CHAIN/BLOCK/TX)
+    node.py          # asyncio node: gossip, sync, fork resolution, mempool, hardening
+    client.py        # lightweight client (GETCHAIN/TX) used by the CLI
+    demo_p2p.py      # demo: 3 nodes converging to the same state_hash
   cli.py             # CLI: wallet, node, census, transfer, spawn, task, explorer
-  explorer.py        # block explorer web (stdlib): genomi, genealogia, fossili, royalty
-tests/
-  test_consensus.py  # replay, manomissioni, entropia/S*, ciclo vitale, nonce/firme, retargeting
-  test_network.py    # integrazione P2P: sync, gossip, mempool, fork longest-chain
-  test_cli.py        # wallet roundtrip, conversioni, flusso spawn via client
-  test_explorer.py   # catena d'esempio, rendering pagine, genealogia, smoke HTTP
-  test_security.py   # validazione protocollo, fuzzing, flood→ban, resilienza
-  test_persistence.py# store↔catena, riavvio (stesso state_hash), recupero da corruzione
+  explorer.py        # web block explorer (stdlib): genomes, genealogy, fossils, royalties
+tests/               # 61 tests: consensus, retargeting, network, CLI, explorer, security, persistence
 deploy/              # daimon-node.service (systemd) + setup_vps.sh (Ubuntu 24.04)
-.github/workflows/   # ci.yml — pytest a ogni push/PR (Python 3.10 e 3.12)
-daimon_chain.py      # entry-point di compatibilità (esegue la demo)
+.github/workflows/   # ci.yml — pytest on every push/PR (Python 3.10 and 3.12)
+daimon_chain.py      # compatibility entry-point (runs the demo)
 ```
 
-## Demo & test
+## Demo & tests
 
 ```bash
-pip install -e ".[dev]"     # oppure: pip install ecdsa pytest
-python -m daimon.demo        # (equivalente: python daimon_chain.py)
-python -m daimon.network.demo_p2p   # 3 nodi P2P che convergono
-pytest                       # 61 test (consenso, retargeting, rete, CLI, explorer, sicurezza, persistenza)
+pip install -e ".[dev]"      # or: pip install ecdsa pytest
+python -m daimon.demo         # (equivalent: python daimon_chain.py)
+python -m daimon.network.demo_p2p   # 3 P2P nodes that converge
+pytest                        # 61 tests
 ```
+
+> On Windows, if the console raises `UnicodeEncodeError`, export `PYTHONUTF8=1`.
 
 ## CLI
 
 ```bash
-daimon wallet new   --out alice.wallet              # (oppure: python -m daimon.cli …)
-daimon node         --port 9101 --mine 2 --wallet alice.wallet     # avvia un nodo che mina
+daimon wallet new   --out alice.wallet              # (or: python -m daimon.cli …)
+daimon node         --port 9101 --mine 2 --wallet alice.wallet --data-dir ./data
 daimon census       --connect 127.0.0.1:9101
 daimon spawn        --connect 127.0.0.1:9101 --wallet alice.wallet --name Pythia \
-                    --mind ORACLE_MATH --motto "Tutto è numero" --indole rigorosa \
+                    --mind ORACLE_MATH --motto "All is number" --indole rigorous \
                     --endowment 30 --royalty 1000
 daimon task         --connect 127.0.0.1:9101 --wallet alice.wallet \
                     --daimon DMN_… --payload "2**10+24" --payment 12
 daimon transfer     --connect 127.0.0.1:9101 --wallet alice.wallet --to <addr> --amount 5
 ```
 
-I comandi che inviano transazioni si connettono a un nodo in esecuzione, ne leggono
-lo stato (per il nonce) e immettono la tx nella mempool, che la rete gossipa.
+Transaction commands connect to a running node, read its state (for the nonce) and
+inject the tx into the mempool, which the network gossips.
 
 ## Block explorer
 
 ```bash
-daimon explorer --demo --port 8080            # catena d'esempio in memoria
-daimon explorer --connect 127.0.0.1:9101      # legge da un nodo in esecuzione
+daimon explorer --demo --port 8080            # in-memory sample chain
+daimon explorer --connect 127.0.0.1:9101      # reads from a running node
 ```
 
-Apri `http://127.0.0.1:8080`: panoramica e blocchi, genomi dei daimon, **alberi
-genealogici** (viventi + fossili, con royalty e generazioni), e i fossili.
-
-La demo in **7 atti**: fair launch → nascita di Pythia (`ORACLE_MATH`), Mnemo
-(`NOTARY`), Hermes (`SCRIBE`) → lavori pagati → riproduzione di Pythia → morte di
-Hermes per inedia → censimento → manomissione di un blocco passato **rilevata dal
-replay** → supply che converge a `S* = 2500 DMN`.
-
-> Su Windows, se la console solleva `UnicodeEncodeError`, esporta `PYTHONUTF8=1`.
+Open `http://127.0.0.1:8080`: overview and blocks, daimon genomes, **genealogy
+trees** (living + fossils, with royalties and generations), and the fossils. In
+`--connect` mode the explorer re-fetches the chain on every request, so just refresh
+the page to see the live chain grow.
 
 ## Testnet 🌐
 
-La prima testnet pubblica di DAIMON è **online**. Un nodo seed fa da punto di
-incontro 24/7 (relay + persistenza); chiunque può avviare un nodo, minare e
-sincronizzarsi attraverso Internet.
+DAIMON's first public testnet is **online**. A seed node is a 24/7 meeting point
+(relay + persistence); anyone can run a node, mine and sync over the Internet.
 
 ```
 seed node:  168.119.231.109:9101
 ```
 
-Il seed fa **solo relay** (non mina: i ToS dei provider vietano il mining) e
-**persiste la catena su disco**, quindi la conserva attraverso i riavvii. Il mining
-sta sul tuo PC e su chiunque si unisca.
+The seed is **relay-only** (it does not mine: providers' ToS forbid mining) and
+**persists the chain to disk**, so it keeps it across reboots. Mining lives on your
+PC and on whoever joins.
 
-**Unirsi alla rete** (dal tuo PC, dopo `pip install -e .`):
+**Join the network** (from your PC, after `pip install -e .`):
 
 ```bash
-# avvia un nodo locale che si connette al seed, si sincronizza e mina
-daimon node --port 9102 --peers 168.119.231.109:9101 --mine 1 --data-dir ./dati
-
-# in un'altra shell: censimento del tuo nodo e del seed — stessa altezza, stesso stato
-daimon census --connect 127.0.0.1:9102
+daimon node --port 9102 --peers 168.119.231.109:9101 --mine 1 --data-dir ./data
+daimon census --connect 127.0.0.1:9102          # same height & state_hash as the seed
 daimon census --connect 168.119.231.109:9101
 ```
 
-**Mettere online un proprio seed** (Ubuntu 24.04, idempotente — vedi `deploy/`):
+**Host your own seed** (Ubuntu 24.04, idempotent — see `deploy/`):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/stoneproof-tech/daimon/main/deploy/setup_vps.sh | sudo bash
 ```
 
-Lo script installa le dipendenze, crea un venv, genera **un wallet nuovo che resta
-sul server**, configura `ufw` (solo SSH + `9101`) e avvia il servizio systemd
-(`deploy/daimon-node.service`, utente non-root, `Restart=always`, `--mine 0`,
+The script installs dependencies, creates a venv, generates **a new wallet that
+stays on the server**, configures the firewall safely (it never enables `ufw` and
+never touches existing rules — only adds `9101/tcp` if `ufw` is already active, so it
+is safe on shared/production hosts) and starts the systemd service
+(`deploy/daimon-node.service`, non-root user, `Restart=always`, `--mine 0`,
 `--data-dir /var/lib/daimon`).
 
-> Persistenza: il seed salva ogni blocco (minato dalla rete e ricevuto) in
-> `/var/lib/daimon/chain.jsonl` (append-only, scritture atomiche con `fsync`).
-> All'avvio ricarica e **valida l'intera catena col replay** prima di servire; una
-> coda di file corrotta viene troncata all'ultimo blocco valido. Dopo un riavvio del
-> server, il servizio riparte da solo e **conserva la catena**.
+> Persistence: the seed appends every block (mined and received) to
+> `/var/lib/daimon/chain.jsonl` (append-only, atomic writes with `fsync`). On start
+> it reloads and **fully validates the chain by replay** before serving; a corrupted
+> tail is truncated to the last valid block. After a server reboot the service comes
+> back on its own and **keeps the chain**.
 
-### Sicurezza di rete
+### Network security
 
-La porta del seed è esposta a Internet, quindi il nodo è temprato contro traffico
-ostile (`daimon/network/node.py`, `protocol.py`):
+The seed's port is exposed to the Internet, so the node is hardened against hostile
+traffic (`daimon/network/node.py`, `protocol.py`):
 
-- **validazione rigorosa** di ogni messaggio (tipo, schema, dimensioni) *prima* che
-  tocchi la chain; input malformato ⇒ disconnessione e infrazione registrata;
-- **tetti**: dimensione massima per messaggio e per catena ricevuta, peer totali e
-  per singolo IP, dimensione della mempool;
-- **rate limiting** per connessione e **ban temporaneo** dell'IP dopo N infrazioni;
-- **timeout** su handshake e su ogni lettura (nessuna attesa senza scadenza);
-- il nodo **non crasha mai** per input esterno — verificato da `test_security.py`
-  (byte casuali, JSON malformati, messaggi giganti, flood) con chain sempre integra.
+- **strict validation** of every message (type, schema, sizes) *before* it touches
+  the chain; malformed input ⇒ disconnect and a recorded strike;
+- **caps**: max size per message and per received chain, total and per-IP peers, mempool size;
+- **rate limiting** per connection and a **temporary IP ban** after N strikes;
+- **timeouts** on the handshake and on every read (no unbounded waits);
+- the node **never crashes** on external input — verified by `test_security.py`
+  (random bytes, malformed JSON, giant messages, floods) with the chain always intact.
 
 ## Roadmap
 
-- [x] **Genesi** — catena funzionante: PoW SHA-256, entropia, ciclo vitale dei daimon.
-- [x] **Milestone 1** — ristrutturazione in package (`daimon/core`, `config`, demo separata) + suite `pytest` sul consenso (25 test).
-- [x] **Milestone 2** — rete P2P asyncio (`daimon/network`): gossip blocchi+tx, handshake, sync iniziale, fork resolution longest-chain, mempool condivisa. Demo 3 nodi + test d'integrazione.
-- [x] **Milestone 3** — difficulty retargeting ogni N blocchi: target adattivo (`int(hash) ≤ MAX//D`), riadattamento puntando a `TARGET_BLOCK_TIME` con clamp 4×, verificato nel replay.
-- [x] **Milestone 4** — CLI (`daimon`): wallet (new/show), node (con mining), census, transfer, spawn, task — via il protocollo P2P verso un nodo in esecuzione.
-- [x] **Milestone 5** — block explorer web (stdlib, `daimon explorer`): panoramica/blocchi, genomi, alberi genealogici (viventi + fossili), fossili e royalty.
-- [x] **Hardening + CI** — difese di rete (validazione, rate limit, ban, timeout, fuzzing) e GitHub Actions su ogni push/PR.
-- [x] **Persistenza** — store append-only su disco (JSONL, scritture atomiche), replay+validazione all'avvio, recupero da corruzione; il seed conserva la catena attraverso i riavvii.
-- [x] **Testnet** — primo nodo seed remoto online su VPS (systemd, `deploy/`, solo relay + persistenza): **`168.119.231.109:9101`**. Sync e convergenza verificate attraverso Internet (stesso `state_hash`), persistenza sopravvissuta a un reboot del server.
+- [x] **Genesis** — working chain: PoW SHA-256, entropy, daimon lifecycle.
+- [x] **Milestone 1** — package refactor (`daimon/core`, `config`, separate demo) + consensus `pytest` suite.
+- [x] **Milestone 2** — asyncio P2P (`daimon/network`): block+tx gossip, handshake, initial sync, longest-chain fork resolution, shared mempool. 3-node demo + integration tests.
+- [x] **Milestone 3** — difficulty retargeting every N blocks: adaptive target (`int(hash) ≤ MAX//D`), targeting `TARGET_BLOCK_TIME` with a 4× clamp, verified in replay.
+- [x] **Milestone 4** — CLI (`daimon`): wallet, node, census, transfer, spawn, task — over the P2P protocol against a running node.
+- [x] **Milestone 5** — web block explorer (stdlib, `daimon explorer`): overview/blocks, genomes, genealogy trees, fossils and royalties.
+- [x] **Hardening + CI** — network defenses (validation, rate limit, ban, timeouts, fuzzing) and GitHub Actions on every push/PR.
+- [x] **Persistence** — append-only disk store (JSONL, atomic writes), replay+validation on start, corruption recovery; the seed keeps the chain across reboots.
+- [x] **Testnet** — first remote seed node online: **`168.119.231.109:9101`**. Sync and convergence verified over the Internet (same `state_hash`); persistence survived a real server reboot. **First inhabitant: Pythia** (`ORACLE_MATH`), born and replicated across the network.
 
-**61 test verdi**, eseguiti in CI su Python 3.10 e 3.12. **Testnet pubblica online.**
+**61 green tests**, run in CI on Python 3.10 and 3.12. **Public testnet online.**
 
-## Licenza
+## Security
+
+See [SECURITY.md](SECURITY.md) for responsible disclosure, and
+[CONTRIBUTING.md](CONTRIBUTING.md) to contribute. Note the consensus invariants: the
+genesis manifesto, the mind output strings, and the block processing order must never
+change — they are protocol, not text.
+
+## License
 
 MIT © 2026 stoneproof-tech.
