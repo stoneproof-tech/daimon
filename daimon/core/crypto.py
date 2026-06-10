@@ -35,6 +35,25 @@ class Wallet:
     def sign(self, msg: str) -> str:
         return self.sk.sign(msg.encode("utf-8")).hex()
 
+    @property
+    def secret_hex(self) -> str:
+        return self.sk.to_string().hex()
+
+    @classmethod
+    def from_secret_hex(cls, secret_hex: str) -> "Wallet":
+        return cls(SigningKey.from_string(bytes.fromhex(secret_hex), curve=SECP256k1))
+
+    def save(self, path: str) -> None:
+        """Salva la chiave su file (mai versionare: vedi .gitignore *.wallet/keys/)."""
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"address": self.address, "secret": self.secret_hex}, f)
+
+    @classmethod
+    def load(cls, path: str) -> "Wallet":
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return cls.from_secret_hex(data["secret"])
+
 
 def address_from_pubkey(pubkey_hex: str) -> str:
     return "usr_" + sha("pk:" + pubkey_hex)[:24]

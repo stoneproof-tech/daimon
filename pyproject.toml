@@ -16,6 +16,7 @@ dependencies = ["ecdsa>=0.19"]
 dev = ["pytest>=8"]
 
 [project.scripts]
+daimon = "daimon.cli:main"
 daimon-demo = "daimon.demo:demo"
 
 [tool.setuptools.packages.find]

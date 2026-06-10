@@ -142,6 +142,17 @@ class Blockchain:
         self.states.append(new_state)
         return hdr
 
+    @classmethod
+    def from_blocks(cls, blocks: list) -> "Blockchain":
+        """Costruisce una catena da una lista di blocchi (validandola col replay)."""
+        ok, msg = cls.validate_chain(blocks)
+        if not ok:
+            raise ConsensusError(f"catena non valida: {msg}")
+        bc = cls.__new__(cls)
+        bc.blocks = [dict(b) for b in blocks]
+        bc.states = bc._rebuild_states(bc.blocks)
+        return bc
+
     @staticmethod
     def validate_chain(blocks: list):
         """Replay totale: ricostruisce lo stato e verifica PoW, linkage, ricevute, state_hash."""

@@ -78,10 +78,13 @@ daimon/
   network/
     protocol.py      # messaggi JSON delimitati da newline (HELLO/GETCHAIN/CHAIN/BLOCK/TX)
     node.py          # nodo asyncio: gossip, sync, fork-resolution, mempool
+    client.py        # client leggero (GETCHAIN/TX) usato dalla CLI
     demo_p2p.py      # demo: 3 nodi che convergono allo stesso state_hash
+  cli.py             # CLI: wallet, node, census, transfer, spawn, task
 tests/
-  test_consensus.py  # replay, manomissioni, entropia/S*, ciclo vitale, nonce/firme
+  test_consensus.py  # replay, manomissioni, entropia/S*, ciclo vitale, nonce/firme, retargeting
   test_network.py    # integrazione P2P: sync, gossip, mempool, fork longest-chain
+  test_cli.py        # wallet roundtrip, conversioni, flusso spawn via client
 daimon_chain.py      # entry-point di compatibilità (esegue la demo)
 ```
 
@@ -91,8 +94,25 @@ daimon_chain.py      # entry-point di compatibilità (esegue la demo)
 pip install -e ".[dev]"     # oppure: pip install ecdsa pytest
 python -m daimon.demo        # (equivalente: python daimon_chain.py)
 python -m daimon.network.demo_p2p   # 3 nodi P2P che convergono
-pytest                       # 26 test (consenso + integrazione rete)
+pytest                       # 36 test (consenso + retargeting + rete + CLI)
 ```
+
+## CLI
+
+```bash
+daimon wallet new   --out alice.wallet              # (oppure: python -m daimon.cli …)
+daimon node         --port 9101 --mine 2 --wallet alice.wallet     # avvia un nodo che mina
+daimon census       --connect 127.0.0.1:9101
+daimon spawn        --connect 127.0.0.1:9101 --wallet alice.wallet --name Pythia \
+                    --mind ORACLE_MATH --motto "Tutto è numero" --indole rigorosa \
+                    --endowment 30 --royalty 1000
+daimon task         --connect 127.0.0.1:9101 --wallet alice.wallet \
+                    --daimon DMN_… --payload "2**10+24" --payment 12
+daimon transfer     --connect 127.0.0.1:9101 --wallet alice.wallet --to <addr> --amount 5
+```
+
+I comandi che inviano transazioni si connettono a un nodo in esecuzione, ne leggono
+lo stato (per il nonce) e immettono la tx nella mempool, che la rete gossipa.
 
 La demo in **7 atti**: fair launch → nascita di Pythia (`ORACLE_MATH`), Mnemo
 (`NOTARY`), Hermes (`SCRIBE`) → lavori pagati → riproduzione di Pythia → morte di
@@ -107,7 +127,7 @@ replay** → supply che converge a `S* = 2500 DMN`.
 - [x] **Milestone 1** — ristrutturazione in package (`daimon/core`, `config`, demo separata) + suite `pytest` sul consenso (25 test).
 - [x] **Milestone 2** — rete P2P asyncio (`daimon/network`): gossip blocchi+tx, handshake, sync iniziale, fork resolution longest-chain, mempool condivisa. Demo 3 nodi + test d'integrazione.
 - [x] **Milestone 3** — difficulty retargeting ogni N blocchi: target adattivo (`int(hash) ≤ MAX//D`), riadattamento puntando a `TARGET_BLOCK_TIME` con clamp 4×, verificato nel replay.
-- [ ] **Milestone 4** — CLI: nodo, wallet, transfer, spawn, task, census.
+- [x] **Milestone 4** — CLI (`daimon`): wallet (new/show), node (con mining), census, transfer, spawn, task — via il protocollo P2P verso un nodo in esecuzione.
 - [ ] **Milestone 5** — block explorer minimale (genomi, alberi genealogici, fossili, royalty).
 
 ## Licenza
