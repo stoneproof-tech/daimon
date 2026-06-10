@@ -106,7 +106,7 @@ replay** → supply che converge a `S* = 2500 DMN`.
 - [x] **Genesi** — catena funzionante: PoW SHA-256, entropia, ciclo vitale dei daimon.
 - [x] **Milestone 1** — ristrutturazione in package (`daimon/core`, `config`, demo separata) + suite `pytest` sul consenso (25 test).
 - [x] **Milestone 2** — rete P2P asyncio (`daimon/network`): gossip blocchi+tx, handshake, sync iniziale, fork resolution longest-chain, mempool condivisa. Demo 3 nodi + test d'integrazione.
-- [ ] **Milestone 3** — difficulty retargeting ogni N blocchi.
+- [x] **Milestone 3** — difficulty retargeting ogni N blocchi: target adattivo (`int(hash) ≤ MAX//D`), riadattamento puntando a `TARGET_BLOCK_TIME` con clamp 4×, verificato nel replay.
 - [ ] **Milestone 4** — CLI: nodo, wallet, transfer, spawn, task, census.
 - [ ] **Milestone 5** — block explorer minimale (genomi, alberi genealogici, fossili, royalty).
 

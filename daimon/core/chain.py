@@ -14,7 +14,10 @@ from .state import (
     phase_entropy, phase_transactions, phase_emission,
     phase_metabolism, phase_reproduction, phase_death,
 )
-from ..config import POW_PREFIX, GENESIS_PREV, MANIFESTO, ConsensusError
+from ..config import (
+    GENESIS_PREV, GENESIS_TS, MANIFESTO, ConsensusError,
+    MAX_HASH, BASE_DIFFICULTY, RETARGET_INTERVAL, TARGET_BLOCK_TIME, RETARGET_CLAMP,
+)
 
 
 def process_block(prev_state: State, index: int, miner: str, txs: list,
@@ -47,14 +50,48 @@ def header_pow_hash(header: dict) -> str:
     return sha(canonical(header))
 
 
+def pow_target(difficulty: int) -> int:
+    """Soglia massima dell'hash per la difficoltà data: hash valido se ≤ MAX_HASH//D."""
+    return MAX_HASH // max(1, int(difficulty))
+
+
+def satisfies_pow(header: dict) -> bool:
+    """Verifica la PoW rispetto alla difficoltà DICHIARATA nell'header."""
+    return int(header_pow_hash(header), 16) <= pow_target(header["difficulty"])
+
+
+def next_difficulty(blocks: list) -> int:
+    """
+    Difficoltà DETERMINISTICA del prossimo blocco che estende `blocks`.
+    Invariata tranne ai confini di RETARGET_INTERVAL, dove si riadatta puntando a
+    TARGET_BLOCK_TIME secondi/blocco sull'ultima finestra, con clamp a RETARGET_CLAMP×.
+    """
+    last = blocks[-1]
+    prev_diff = last["difficulty"]
+    next_index = last["index"] + 1
+    if next_index < RETARGET_INTERVAL or next_index % RETARGET_INTERVAL != 0:
+        return prev_diff
+    ref = blocks[-RETARGET_INTERVAL]                       # confine precedente della finestra
+    actual = last["timestamp"] - ref["timestamp"]
+    if actual <= 0:
+        actual = 1
+    expected = RETARGET_INTERVAL * TARGET_BLOCK_TIME
+    # Blocchi troppo veloci (actual < expected) ⇒ difficoltà sale; troppo lenti ⇒ scende.
+    new_diff = prev_diff * expected // actual
+    lo, hi = prev_diff // RETARGET_CLAMP, prev_diff * RETARGET_CLAMP
+    new_diff = max(lo, min(hi, new_diff))
+    return max(1, new_diff)
+
+
 def mine_nonce(header_wo_nonce: dict):
-    """Proof-of-Work: trova nonce tale che l'hash dell'header inizi con POW_PREFIX."""
+    """Proof-of-Work: trova nonce tale che l'hash soddisfi la difficoltà dell'header."""
+    target = pow_target(header_wo_nonce["difficulty"])
     nonce = 0
     while True:
         header = dict(header_wo_nonce)
         header["nonce"] = nonce
         h = header_pow_hash(header)
-        if h.startswith(POW_PREFIX):
+        if int(h, 16) <= target:
             return nonce, h
         nonce += 1
 
@@ -68,9 +105,9 @@ class Blockchain:
     def _build_genesis(self) -> None:
         state, receipts = process_block(State(), 0, "GENESIS", [], is_genesis=True)
         hdr = {
-            "index": 0, "timestamp": 0, "prev_hash": GENESIS_PREV, "miner": "GENESIS",
+            "index": 0, "timestamp": GENESIS_TS, "prev_hash": GENESIS_PREV, "miner": "GENESIS",
             "txs": [], "receipts": receipts, "state_hash": state.hash(),
-            "manifesto": MANIFESTO,
+            "difficulty": BASE_DIFFICULTY, "manifesto": MANIFESTO,
         }
         hdr["nonce"], _ = mine_nonce(hdr)
         self.blocks.append(hdr)
@@ -98,6 +135,7 @@ class Blockchain:
             "txs": txs,
             "receipts": receipts,
             "state_hash": new_state.hash(),
+            "difficulty": next_difficulty(self.blocks),
         }
         hdr["nonce"], _ = mine_nonce(hdr)
         self.blocks.append(hdr)
@@ -114,7 +152,9 @@ class Blockchain:
             return False, "manifesto di genesi manomesso"
         if g["prev_hash"] != GENESIS_PREV:
             return False, "prev_hash di genesi non nullo"
-        if not header_pow_hash(g).startswith(POW_PREFIX):
+        if g.get("difficulty") != BASE_DIFFICULTY:
+            return False, "difficoltà di genesi non conforme"
+        if not satisfies_pow(g):
             return False, "PoW di genesi non valida"
         gstate, greceipts = process_block(State(), 0, "GENESIS", [], is_genesis=True)
         if g["state_hash"] != gstate.hash():
@@ -130,7 +170,9 @@ class Blockchain:
                 return False, f"indice fuori sequenza al blocco {i}"
             if blk["prev_hash"] != header_pow_hash(prev):
                 return False, f"prev_hash spezzato al blocco {i} (catena manomessa)"
-            if not header_pow_hash(blk).startswith(POW_PREFIX):
+            if blk.get("difficulty") != next_difficulty(blocks[:i]):
+                return False, f"difficoltà non conforme al retargeting al blocco {i}"
+            if not satisfies_pow(blk):
                 return False, f"PoW non valida al blocco {i}"
             try:
                 new_state, receipts = process_block(state, i, blk["miner"], blk["txs"])
@@ -163,7 +205,9 @@ class Blockchain:
             return False, f"indice non consecutivo (atteso {self.height + 1}, ricevuto {i})"
         if block["prev_hash"] != self.tip_hash:
             return False, "prev_hash non aggancia il tip (possibile fork)"
-        if not header_pow_hash(block).startswith(POW_PREFIX):
+        if block.get("difficulty") != next_difficulty(self.blocks):
+            return False, "difficoltà non conforme al retargeting"
+        if not satisfies_pow(block):
             return False, "PoW non valida"
         try:
             new_state, receipts = process_block(self.tip_state, i, block["miner"], block["txs"])

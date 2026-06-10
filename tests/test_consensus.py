@@ -15,12 +15,13 @@ import pytest
 from daimon.config import (
     DMN, EMISSION, S_STAR, MANIFESTO, ConsensusError,
     MIN_ENDOWMENT, ROYALTY_MAX_BP, DEMURRAGE_NUM, DEMURRAGE_DEN, UPKEEP,
+    BASE_DIFFICULTY, RETARGET_INTERVAL, TARGET_BLOCK_TIME, GENESIS_TS,
 )
 from daimon.core import (
     Wallet, Blockchain, State, process_block,
     make_tx, make_genome, daimon_id, daimon_address,
 )
-from daimon.core.chain import header_pow_hash, mine_nonce, POW_PREFIX
+from daimon.core.chain import header_pow_hash, mine_nonce, satisfies_pow, next_difficulty
 from daimon.core.minds import run_mind, mind_oracle_math
 
 
@@ -53,7 +54,7 @@ def test_genesi_zero_premine():
     assert chain.tip_state.supply() == 0
     assert chain.blocks[0]["manifesto"] == MANIFESTO
     assert chain.blocks[0]["prev_hash"] == "0" * 64
-    assert header_pow_hash(chain.blocks[0]).startswith(POW_PREFIX)
+    assert satisfies_pow(chain.blocks[0])
 
 
 def test_emissione_e_pow():
@@ -62,7 +63,7 @@ def test_emissione_e_pow():
     # che su saldo iniziale 0 non toglie nulla).
     assert chain.tip_state.balances[founder.address] == EMISSION
     for blk in chain.blocks:
-        assert header_pow_hash(blk).startswith(POW_PREFIX)
+        assert satisfies_pow(blk)
 
 
 # ── Determinismo & replay ────────────────────────────────────────────────────
@@ -330,3 +331,59 @@ def test_scribe_usa_motto_e_indole():
     d = {"mind": "SCRIBE", "motto": "Porto parole", "indole": "ironico"}
     out = run_mind(d, "ciao", 1, 0)
     assert out == "CIAO — Porto parole [ironico]"
+
+
+# ── Difficulty retargeting (Milestone 3) ─────────────────────────────────────
+
+def _mine_window(chain, miner, step, count=RETARGET_INTERVAL, t0=GENESIS_TS):
+    """Conia `count` blocchi con timestamp distanziati di `step` secondi."""
+    for k in range(count):
+        chain.mine_block(miner.address, [], timestamp=t0 + (k + 1) * step)
+
+
+def test_genesi_difficolta_base_e_pow_coerente():
+    chain = Blockchain()
+    assert chain.blocks[0]["difficulty"] == BASE_DIFFICULTY
+    assert satisfies_pow(chain.blocks[0])
+
+
+def test_difficolta_costante_dentro_la_finestra():
+    chain, founder, _ = fresh_chain_with_founder(RETARGET_INTERVAL - 1)
+    # Prima del primo confine di retarget la difficoltà resta quella base.
+    for blk in chain.blocks[1:]:
+        assert blk["difficulty"] == BASE_DIFFICULTY
+
+
+def test_retarget_alza_difficolta_se_blocchi_veloci():
+    chain = Blockchain()
+    miner = Wallet()
+    # Blocchi 10x più veloci del target ⇒ la difficoltà sale (clamp 4x).
+    _mine_window(chain, miner, step=TARGET_BLOCK_TIME // 10)
+    blocco_di_confine = chain.blocks[RETARGET_INTERVAL]
+    assert blocco_di_confine["difficulty"] > BASE_DIFFICULTY
+    assert satisfies_pow(blocco_di_confine)
+    ok, msg = chain.is_valid()
+    assert ok, msg
+
+
+def test_retarget_abbassa_difficolta_se_blocchi_lenti():
+    chain = Blockchain()
+    miner = Wallet()
+    # Blocchi 10x più lenti del target ⇒ la difficoltà scende (clamp 4x).
+    _mine_window(chain, miner, step=TARGET_BLOCK_TIME * 10)
+    blocco_di_confine = chain.blocks[RETARGET_INTERVAL]
+    assert blocco_di_confine["difficulty"] < BASE_DIFFICULTY
+    assert satisfies_pow(blocco_di_confine)
+    ok, msg = chain.is_valid()
+    assert ok, msg
+
+
+def test_difficolta_dichiarata_manomessa_rifiutata():
+    chain, founder, _ = fresh_chain_with_founder(RETARGET_INTERVAL + 2)
+    forged = copy.deepcopy(chain.blocks)
+    # Dichiaro una difficoltà più bassa su un blocco e ri-conio la PoW (più facile):
+    # il replay ricalcola il retargeting atteso e rileva la non conformità.
+    forged[5]["difficulty"] = BASE_DIFFICULTY // 4
+    forged[5]["nonce"], _ = mine_nonce({k: v for k, v in forged[5].items() if k != "nonce"})
+    ok, msg = Blockchain.validate_chain(forged)
+    assert not ok and "difficolt" in msg

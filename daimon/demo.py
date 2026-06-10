@@ -29,6 +29,7 @@ def _hr(title: str) -> None:
 def _census(chain: Blockchain) -> None:
     st = chain.tip_state
     print(f"  Altezza catena : {chain.height} blocchi")
+    print(f"  Difficoltà tip : {chain.blocks[-1]['difficulty']} (retargeting ogni N blocchi)")
     print(f"  Supply totale  : {fmt(st.supply())}   (S* = {fmt(S_STAR)})")
     pct = st.supply() * 100 // S_STAR if S_STAR else 0
     print(f"  Convergenza    : {pct}% di S*")
