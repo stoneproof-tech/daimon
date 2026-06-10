@@ -19,6 +19,11 @@ from ..core.chain import header_pow_hash
 from ..config import ConsensusError
 from . import protocol as p
 
+# Il messaggio CHAIN è UNA riga JSON con l'intera catena: può superare ampiamente
+# il limite di default di asyncio (64 KB) su una catena lunga. Alziamo il tetto del
+# buffer di lettura così la sync e la CLI reggono anche catene di molti blocchi.
+STREAM_LIMIT = 256 * 1024 * 1024  # 256 MiB
+
 
 class Node:
     def __init__(self, name: str, host: str = "127.0.0.1", port: int = 0,
@@ -43,7 +48,8 @@ class Node:
 
     # ── avvio / arresto ───────────────────────────────────────────────────────
     async def start(self) -> None:
-        self.server = await asyncio.start_server(self._on_inbound, self.host, self.port)
+        self.server = await asyncio.start_server(
+            self._on_inbound, self.host, self.port, limit=STREAM_LIMIT)
         # se port==0, recupera quella assegnata dal SO
         self.port = self.server.sockets[0].getsockname()[1]
         self._running = True
@@ -71,7 +77,7 @@ class Node:
     async def _dial(self, host: str, port: int) -> None:
         while self._running:
             try:
-                reader, writer = await asyncio.open_connection(host, port)
+                reader, writer = await asyncio.open_connection(host, port, limit=STREAM_LIMIT)
                 await self._serve(reader, writer, outbound=True)
             except (ConnectionError, OSError):
                 await asyncio.sleep(0.2)  # peer non ancora pronto: riprova

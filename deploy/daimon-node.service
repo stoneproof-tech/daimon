@@ -1,0 +1,33 @@
+[Unit]
+Description=DAIMON seed node (testnet)
+Documentation=https://github.com/stoneproof-tech/daimon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=daimon
+Group=daimon
+WorkingDirectory=/opt/daimon
+# Il wallet del nodo nasce e resta sul server (mai trasmesso). Mining attivo (--mine 1).
+ExecStart=/opt/daimon/.venv/bin/daimon node --name seed --host 0.0.0.0 --port 9101 --mine 1 --wallet /var/lib/daimon/node.wallet
+Restart=always
+RestartSec=3
+# Logging su journald
+StandardOutput=journal
+StandardError=journal
+
+# ── Hardening ────────────────────────────────────────────────────────────────
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+# Unico percorso scrivibile: la cartella dati (contiene il wallet del nodo).
+ReadWritePaths=/var/lib/daimon
+
+[Install]
+WantedBy=multi-user.target

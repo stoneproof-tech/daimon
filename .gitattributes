@@ -1,0 +1,5 @@
+# Gli script e le unit di deploy DEVONO restare con fine-riga LF: un CRLF
+# romperebbe lo shebang/parsing su Linux.
+*.sh    text eol=lf
+*.service text eol=lf
+deploy/* text eol=lf

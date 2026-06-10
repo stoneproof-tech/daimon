@@ -133,6 +133,39 @@ replay** → supply che converge a `S* = 2500 DMN`.
 
 > Su Windows, se la console solleva `UnicodeEncodeError`, esporta `PYTHONUTF8=1`.
 
+## Testnet 🌐
+
+La prima testnet pubblica di DAIMON è **online**. Un nodo seed conia blocchi 24/7;
+chiunque può avviare un nodo e sincronizzarsi attraverso Internet.
+
+```
+seed node:  <SEED_IP>:9101
+```
+
+**Unirsi alla rete** (dal tuo PC, dopo `pip install -e .`):
+
+```bash
+# avvia un nodo locale che si connette al seed e si sincronizza
+daimon node --port 9102 --peers <SEED_IP>:9101 --mine 1
+
+# in un'altra shell: censimento del tuo nodo e del seed — stessa altezza, stesso stato
+daimon census --connect 127.0.0.1:9102
+daimon census --connect <SEED_IP>:9101
+```
+
+**Mettere online un proprio seed** (Ubuntu 24.04, idempotente — vedi `deploy/`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/stoneproof-tech/daimon/main/deploy/setup_vps.sh | sudo bash
+```
+
+Lo script installa le dipendenze, crea un venv, genera **un wallet nuovo che resta
+sul server**, configura `ufw` (solo SSH + `9101`) e avvia il servizio systemd
+(`deploy/daimon-node.service`, utente non-root, `Restart=always`).
+
+> Nota: il nodo tiene la catena in memoria; a un riavvio riparte dalla genesi e si
+> ri-sincronizza dalla rete (la catena più lunga vince). Per una testnet va bene.
+
 ## Roadmap
 
 - [x] **Genesi** — catena funzionante: PoW SHA-256, entropia, ciclo vitale dei daimon.
@@ -141,8 +174,9 @@ replay** → supply che converge a `S* = 2500 DMN`.
 - [x] **Milestone 3** — difficulty retargeting ogni N blocchi: target adattivo (`int(hash) ≤ MAX//D`), riadattamento puntando a `TARGET_BLOCK_TIME` con clamp 4×, verificato nel replay.
 - [x] **Milestone 4** — CLI (`daimon`): wallet (new/show), node (con mining), census, transfer, spawn, task — via il protocollo P2P verso un nodo in esecuzione.
 - [x] **Milestone 5** — block explorer web (stdlib, `daimon explorer`): panoramica/blocchi, genomi, alberi genealogici (viventi + fossili), fossili e royalty.
+- [x] **Testnet** — primo nodo seed remoto su VPS (systemd, `deploy/`): la rete è online attraverso Internet.
 
-**Tutte le milestone completate.** 41 test verdi.
+**Tutte le milestone completate.** 43 test verdi.
 
 ## Licenza
 

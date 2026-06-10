@@ -9,10 +9,14 @@ import asyncio
 
 from . import protocol as p
 
+# Stesso motivo del nodo: il messaggio CHAIN è una riga JSON che può superare i
+# 64 KB di default di asyncio su catene lunghe.
+STREAM_LIMIT = 256 * 1024 * 1024  # 256 MiB
 
-async def fetch_chain(host: str, port: int, timeout: float = 5.0) -> list:
+
+async def fetch_chain(host: str, port: int, timeout: float = 15.0) -> list:
     """Scarica la catena completa dal nodo. Ritorna la lista dei blocchi."""
-    reader, writer = await asyncio.open_connection(host, port)
+    reader, writer = await asyncio.open_connection(host, port, limit=STREAM_LIMIT)
     try:
         writer.write(p.encode(p.m_getchain()))
         await writer.drain()
@@ -33,7 +37,7 @@ async def fetch_chain(host: str, port: int, timeout: float = 5.0) -> list:
 
 async def push_tx(host: str, port: int, tx: dict, settle: float = 0.4) -> None:
     """Immette una transazione nel nodo (che la aggiunge alla mempool e la gossipa)."""
-    reader, writer = await asyncio.open_connection(host, port)
+    reader, writer = await asyncio.open_connection(host, port, limit=STREAM_LIMIT)
     try:
         writer.write(p.encode(p.m_tx(tx)))
         await writer.drain()
