@@ -145,3 +145,58 @@ class Blockchain:
 
     def is_valid(self):
         return self.validate_chain(self.blocks)
+
+    @property
+    def tip_hash(self) -> str:
+        return header_pow_hash(self.blocks[-1])
+
+    # ── Supporto alla rete P2P (Milestone 2) ────────────────────────────────
+
+    def add_external_block(self, block: dict):
+        """
+        Accoda un blocco ricevuto dalla rete SE estende esattamente il tip.
+        Stessa validazione del consenso (PoW, linkage, replay, ricevute, state_hash).
+        Ritorna (ok, motivo). Non risolve fork: per quello vedi maybe_replace_chain.
+        """
+        i = block["index"]
+        if i != self.height + 1:
+            return False, f"indice non consecutivo (atteso {self.height + 1}, ricevuto {i})"
+        if block["prev_hash"] != self.tip_hash:
+            return False, "prev_hash non aggancia il tip (possibile fork)"
+        if not header_pow_hash(block).startswith(POW_PREFIX):
+            return False, "PoW non valida"
+        try:
+            new_state, receipts = process_block(self.tip_state, i, block["miner"], block["txs"])
+        except ConsensusError as exc:
+            return False, f"consenso violato: {exc}"
+        if canonical(receipts) != canonical(block["receipts"]):
+            return False, "ricevute non corrispondono"
+        if new_state.hash() != block["state_hash"]:
+            return False, "state_hash non corrisponde"
+        self.blocks.append(block)
+        self.states.append(new_state)
+        return True, "ok"
+
+    def _rebuild_states(self, blocks: list) -> list:
+        """Ricostruisce la lista degli stati replay-ando i blocchi (già validati)."""
+        state = process_block(State(), 0, "GENESIS", [], is_genesis=True)[0]
+        states = [state]
+        for i in range(1, len(blocks)):
+            blk = blocks[i]
+            state, _ = process_block(state, i, blk["miner"], blk["txs"])
+            states.append(state)
+        return states
+
+    def maybe_replace_chain(self, blocks: list):
+        """
+        Risoluzione fork LONGEST-CHAIN: adotta `blocks` se è strettamente più lunga
+        della corrente ED è valida (replay totale). Ritorna (adottata, motivo).
+        """
+        if len(blocks) <= len(self.blocks):
+            return False, "catena non più lunga della corrente"
+        ok, msg = self.validate_chain(blocks)
+        if not ok:
+            return False, f"catena ricevuta non valida: {msg}"
+        self.blocks = [dict(b) for b in blocks]
+        self.states = self._rebuild_states(self.blocks)
+        return True, f"adottata catena di {len(self.blocks)} blocchi"

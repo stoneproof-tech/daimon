@@ -75,8 +75,13 @@ daimon/
     tx.py            # genoma, identità daimon, handler TRANSFER/SPAWN/TASK
     state.py         # State + le sei fasi del blocco
     chain.py         # process_block (consenso), PoW, Blockchain, replay/validazione
+  network/
+    protocol.py      # messaggi JSON delimitati da newline (HELLO/GETCHAIN/CHAIN/BLOCK/TX)
+    node.py          # nodo asyncio: gossip, sync, fork-resolution, mempool
+    demo_p2p.py      # demo: 3 nodi che convergono allo stesso state_hash
 tests/
   test_consensus.py  # replay, manomissioni, entropia/S*, ciclo vitale, nonce/firme
+  test_network.py    # integrazione P2P: sync, gossip, mempool, fork longest-chain
 daimon_chain.py      # entry-point di compatibilità (esegue la demo)
 ```
 
@@ -85,7 +90,8 @@ daimon_chain.py      # entry-point di compatibilità (esegue la demo)
 ```bash
 pip install -e ".[dev]"     # oppure: pip install ecdsa pytest
 python -m daimon.demo        # (equivalente: python daimon_chain.py)
-pytest                       # 25 test sul consenso
+python -m daimon.network.demo_p2p   # 3 nodi P2P che convergono
+pytest                       # 26 test (consenso + integrazione rete)
 ```
 
 La demo in **7 atti**: fair launch → nascita di Pythia (`ORACLE_MATH`), Mnemo
@@ -99,7 +105,7 @@ replay** → supply che converge a `S* = 2500 DMN`.
 
 - [x] **Genesi** — catena funzionante: PoW SHA-256, entropia, ciclo vitale dei daimon.
 - [x] **Milestone 1** — ristrutturazione in package (`daimon/core`, `config`, demo separata) + suite `pytest` sul consenso (25 test).
-- [ ] **Milestone 2** — rete P2P asyncio: gossip blocchi+tx, sync, fork resolution longest-chain, mempool condivisa.
+- [x] **Milestone 2** — rete P2P asyncio (`daimon/network`): gossip blocchi+tx, handshake, sync iniziale, fork resolution longest-chain, mempool condivisa. Demo 3 nodi + test d'integrazione.
 - [ ] **Milestone 3** — difficulty retargeting ogni N blocchi.
 - [ ] **Milestone 4** — CLI: nodo, wallet, transfer, spawn, task, census.
 - [ ] **Milestone 5** — block explorer minimale (genomi, alberi genealogici, fossili, royalty).
