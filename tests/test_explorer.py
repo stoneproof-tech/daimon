@@ -31,33 +31,33 @@ def test_sample_chain_ha_vita_completa():
 def test_pagine_si_renderizzano():
     chain = build_sample_chain()
     idx = render_index(chain)
-    assert "Panoramica" in idx and "supply" in idx
+    assert "Overview" in idx and "supply" in idx
     dm = render_daimons(chain)
-    assert "Daimon viventi" in dm and "royalty" in dm
+    assert "Living daimons" in dm and "royalty" in dm
     gen = render_genealogy(chain)
-    assert "genealogic" in gen.lower()
+    assert "genealogy" in gen.lower()
     fos = render_fossils(chain)
-    assert "Fossili" in fos
+    assert "Fossils" in fos
     blk = render_block(chain, 0)
-    assert "Manifesto" in blk            # la genesi porta il manifesto
-    # I genomi (motto) compaiono da qualche parte.
-    assert "numero" in dm or "numero" in gen
+    assert "Manifesto" in blk            # the genesis carries the manifesto
+    # The genomes (motto) appear somewhere.
+    assert "number" in dm or "number" in gen
 
 
 def test_route_dispatch():
     chain = build_sample_chain()
-    assert "Panoramica" in route(chain, "/", {})
+    assert "Overview" in route(chain, "/", {})
     assert "Daimon" in route(chain, "/daimons", {})
-    assert "404" in route(chain, "/inesistente", {})
-    assert "Blocco #0" in route(chain, "/block", {"i": ["0"]})
+    assert "404" in route(chain, "/nonexistent", {})
+    assert "Block #0" in route(chain, "/block", {"i": ["0"]})
 
 
 def test_genealogia_mostra_fossile_e_generazioni():
     chain = build_sample_chain()
     gen = render_genealogy(chain)
-    # Un fossile (Hermes) deve comparire marcato come tale.
-    assert "fossile" in gen
-    # Una stirpe con figlio: deve esserci un nodo gen1.
+    # A fossil (Hermes) must appear marked as such.
+    assert "fossil" in gen
+    # A lineage with a child: there must be a gen1 node.
     assert "gen1" in gen
 
 

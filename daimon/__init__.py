@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DAIMON — blockchain L1 in puro Python con agenti AI come primitive native."""
+"""DAIMON — a pure-Python Layer-1 blockchain with AI agents as native primitives."""
 
 from . import config
 from .core import (

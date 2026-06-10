@@ -86,7 +86,7 @@ def test_replay_catena_integra():
     spawn(chain, founder, "Pythia", "ORACLE_MATH", "Tutto è numero", "rigorosa", ts=ts)
     ok, msg = chain.is_valid()
     assert ok, msg
-    assert msg == "catena integra"
+    assert msg == "chain valid"
 
 
 def test_replay_ricostruisce_stesso_state_hash():
@@ -121,7 +121,7 @@ def test_manomissione_ricevuta_rilevata_dal_replay():
     forged[victim]["receipts"][-1]["result"] = "MANOMESSO"
     forged[victim]["nonce"], _ = mine_nonce({k: v for k, v in forged[victim].items() if k != "nonce"})
     ok, msg = Blockchain.validate_chain(forged)
-    assert not ok and "ricevute manomesse" in msg
+    assert not ok and "tampered receipts" in msg
 
 
 def test_manomissione_stato_rilevata():
@@ -152,7 +152,7 @@ def test_manomissione_importo_tx_rompe_la_firma():
     forged[victim]["txs"][0]["payload"]["amount"] = 999 * DMN  # firma non più valida
     forged[victim]["nonce"], _ = mine_nonce({k: v for k, v in forged[victim].items() if k != "nonce"})
     ok, msg = Blockchain.validate_chain(forged)
-    assert not ok and ("firma" in msg or "consenso" in msg)
+    assert not ok and ("signature" in msg or "consensus" in msg)
 
 
 # ── Entropia ed equilibrio S* ────────────────────────────────────────────────
@@ -386,7 +386,7 @@ def test_difficolta_dichiarata_manomessa_rifiutata():
     forged[5]["difficulty"] = BASE_DIFFICULTY // 4
     forged[5]["nonce"], _ = mine_nonce({k: v for k, v in forged[5].items() if k != "nonce"})
     ok, msg = Blockchain.validate_chain(forged)
-    assert not ok and "difficolt" in msg
+    assert not ok and "difficulty" in msg
 
 
 def test_prima_finestra_a_ritmo_target_non_tocca_il_floor():

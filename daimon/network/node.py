@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
-"""Nodo P2P di DAIMON su asyncio — temprato per esposizione pubblica.
+"""DAIMON P2P node on asyncio — hardened for public exposure.
 
-Responsabilità:
-  * handshake e connessioni persistenti (inbound + outbound) verso i peer;
-  * sync iniziale: alla connessione si scarica la catena più lunga;
-  * gossip dei blocchi appena coniati/ricevuti e delle transazioni (mempool);
-  * risoluzione dei fork con la regola LONGEST-CHAIN (delegata al core);
-  * anti-entropia periodica (HELLO) per garantire la convergenza eventuale.
+Responsibilities:
+  * handshake and persistent connections (inbound + outbound) to peers;
+  * initial sync: on connect, download the longest chain;
+  * gossip of freshly mined/received blocks and of transactions (mempool);
+  * fork resolution via the LONGEST-CHAIN rule (delegated to the core);
+  * periodic anti-entropy (HELLO) to guarantee eventual convergence.
 
-Difese (la porta del seed riceve traffico ostile dal giorno uno):
-  * validazione rigorosa di OGNI messaggio prima che tocchi la chain;
-  * tetti su dimensione messaggio, lunghezza catena, peer totali e per-IP, mempool;
-  * rate limiting per connessione; timeout su handshake e su ogni lettura;
-  * ban temporaneo dell'IP dopo N infrazioni; nessun input esterno fa crashare il nodo.
+Defenses (the seed's port receives hostile traffic from day one):
+  * strict validation of EVERY message before it touches the chain;
+  * caps on message size, chain length, total and per-IP peers, mempool;
+  * per-connection rate limiting; timeouts on the handshake and every read;
+  * temporary IP ban after N strikes; no external input can crash the node.
 
-Tutte le mutazioni della catena passano da `process_block` (core), mai duplicato.
+All chain mutations go through `process_block` (core), never duplicated.
 """
 
 import time
@@ -41,7 +41,7 @@ class Node:
         self.wallet = wallet or Wallet()
         self.address = self.wallet.address
         self.chain = Blockchain()
-        # Persistenza opzionale: store append-only su disco (vedi daimon/store.py).
+        # Optional persistence: append-only disk store (see daimon/store.py).
         self.store = None
         if data_dir:
             from ..store import BlockStore
@@ -53,7 +53,7 @@ class Node:
         self._running = False
         self._tasks: list = []
 
-        # Parametri di sicurezza (sovrascrivibili dai test per esercitare i limiti).
+        # Security parameters (overridable by tests to exercise the limits).
         self.max_msg_bytes = limits.get("max_msg_bytes", NET_MAX_MSG_BYTES)
         self.max_chain_blocks = limits.get("max_chain_blocks", NET_MAX_CHAIN_BLOCKS)
         self.max_peers = limits.get("max_peers", NET_MAX_PEERS)
@@ -66,23 +66,23 @@ class Node:
         self.ban_seconds = limits.get("ban_seconds", NET_BAN_SECONDS)
         self.max_mempool = limits.get("max_mempool", NET_MAX_MEMPOOL)
 
-        self._conn_by_ip: dict = {}     # ip -> connessioni attive
-        self._strikes: dict = {}        # ip -> infrazioni accumulate
-        self._banned: dict = {}         # ip -> monotonic time di fine ban
-        self.dropped = 0                # contatore di messaggi/connessioni rifiutati (osservabilità)
+        self._conn_by_ip: dict = {}     # ip -> active connections
+        self._strikes: dict = {}        # ip -> accumulated strikes
+        self._banned: dict = {}         # ip -> monotonic time when the ban ends
+        self.dropped = 0                # count of rejected messages/connections (observability)
 
     # ── log ───────────────────────────────────────────────────────────────────
     def log(self, msg: str) -> None:
         print(f"  [{self.name}] {msg}")
 
-    # ── avvio / arresto ───────────────────────────────────────────────────────
+    # ── start / stop ──────────────────────────────────────────────────────────
     async def start(self) -> None:
-        # Carica e VALIDA la catena persistita PRIMA di servire (replay totale).
+        # Load and VALIDATE the persisted chain BEFORE serving (full replay).
         if self.store is not None:
             from ..store import load_chain
             self.chain, info = load_chain(self.store)
             if info["loaded"]:
-                self.log(f"catena ripristinata dal disco: {info['loaded']} blocchi "
+                self.log(f"chain restored from disk: {info['loaded']} blocks "
                          f"(tip @ {self.chain.height})")
         self.server = await asyncio.start_server(
             self._on_inbound, self.host, self.port, limit=self.max_msg_bytes)
@@ -125,9 +125,9 @@ class Node:
         self.dropped += 1
         if n >= self.max_strikes:
             self._banned[ip] = time.monotonic() + self.ban_seconds
-            self.log(f"ban temporaneo di {ip} ({reason})")
+            self.log(f"temporary ban of {ip} ({reason})")
 
-    # ── connessioni ───────────────────────────────────────────────────────────
+    # ── connections ───────────────────────────────────────────────────────────
     async def _dial(self, host: str, port: int) -> None:
         while self._running:
             try:
@@ -147,7 +147,7 @@ class Node:
         peer = writer.get_extra_info("peername")
         ip = peer[0] if peer else "?"
 
-        # Filtri di ammissione: ban, tetto globale, tetto per-IP.
+        # Admission filters: ban, global cap, per-IP cap.
         if self._is_banned(ip) or len(self.writers) >= self.max_peers \
                 or self._conn_by_ip.get(ip, 0) >= self.max_conn_per_ip:
             self.dropped += 1
@@ -171,18 +171,18 @@ class Node:
                 except asyncio.TimeoutError:
                     break
                 except (ValueError, asyncio.LimitOverrunError):
-                    self._strike(ip, "messaggio oltre il limite")  # riga troppo lunga
+                    self._strike(ip, "message over the limit")  # line too long
                     break
                 except (ConnectionError, OSError):
                     break
                 if not line:
                     break
                 if len(line) > self.max_msg_bytes:
-                    self._strike(ip, "messaggio troppo grande")
+                    self._strike(ip, "message too large")
                     break
                 first = False
 
-                # Rate limiting per connessione (finestra scorrevole).
+                # Per-connection rate limiting (sliding window).
                 now = time.monotonic()
                 if now - win_start > self.rate_window:
                     win_start, win_count = now, 0
@@ -191,19 +191,19 @@ class Node:
                     self._strike(ip, "flood")
                     break
 
-                # Decode + validazione rigorosa PRIMA di toccare la chain.
+                # Decode + strict validation BEFORE touching the chain.
                 try:
                     msg = p.decode(line)
                     p.validate_message(msg, self.max_chain_blocks)
                 except Exception:
-                    self._strike(ip, "messaggio malformato")
+                    self._strike(ip, "malformed message")
                     break
 
-                # Gestione: qualunque errore qui è trattato come infrazione, mai crash.
+                # Handling: any error here is treated as a strike, never a crash.
                 try:
                     await self._handle(msg, writer)
                 except Exception:
-                    self._strike(ip, "errore di gestione")
+                    self._strike(ip, "handling error")
                     break
         except (ConnectionError, OSError):
             pass
@@ -215,7 +215,7 @@ class Node:
             except Exception:
                 pass
 
-    # ── invio ─────────────────────────────────────────────────────────────────
+    # ── send ──────────────────────────────────────────────────────────────────
     async def _send(self, writer, msg: dict) -> None:
         try:
             writer.write(p.encode(msg))
@@ -234,7 +234,7 @@ class Node:
             await asyncio.sleep(0.3)
             await self.broadcast(p.m_hello(self.chain.height, self.chain.tip_hash))
 
-    # ── gestione messaggi ─────────────────────────────────────────────────────
+    # ── message handling ──────────────────────────────────────────────────────
     async def _handle(self, msg: dict, writer) -> None:
         t = msg["t"]
         if t == p.HELLO:
@@ -257,7 +257,7 @@ class Node:
             adopted, why = self.chain.maybe_replace_chain(blocks)
         if adopted:
             if self.store is not None:
-                self.store.rewrite(self.chain.blocks[1:])  # fork adottato: riscrivi atomico
+                self.store.rewrite(self.chain.blocks[1:])  # adopted fork: atomic rewrite
             self.log(f"sync: {why} (tip @ {self.chain.height})")
             self._purge_mempool()
             await self.broadcast(p.m_hello(self.chain.height, self.chain.tip_hash))
@@ -268,7 +268,7 @@ class Node:
         if ok:
             if self.store is not None:
                 self.store.append(block)
-            self.log(f"blocco {block['index']} accettato dal gossip")
+            self.log(f"block {block['index']} accepted from gossip")
             self._purge_mempool()
             await self.broadcast(p.m_block(block), exclude=writer)
         else:
@@ -327,6 +327,6 @@ class Node:
             if self.store is not None:
                 self.store.append(block)
         self._purge_mempool()
-        self.log(f"ho coniato il blocco {block['index']} ({len(txs)} tx) → gossip")
+        self.log(f"mined block {block['index']} ({len(txs)} tx) → gossip")
         await self.broadcast(p.m_block(block))
         return block

@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Genoma, identità dei daimon e handler delle transazioni.
+"""Genome, daimon identity and transaction handlers.
 
-Gli handler operano in-place su uno `State` passato come argomento (nessun import
-di State: evita cicli). Tipi: TRANSFER, SPAWN, TASK. La verifica firma+nonce è in
-`state.phase_transactions`; qui sta la logica economica di ciascun tipo.
+Handlers operate in-place on a `State` passed as argument (no State import: avoids
+cycles). Types: TRANSFER, SPAWN, TASK. Signature+nonce verification lives in
+`state.phase_transactions`; the economic logic of each type lives here.
+
+Receipt keys/values (`k`, "TRANSFER"/"SPAWN"/"TASK", field names) and record fields
+are consensus-visible (engraved into receipts/state) and must not change. The
+ConsensusError messages below are diagnostics only (never serialized), so they are
+in English.
 """
 
 from .crypto import canonical, sha
@@ -14,7 +19,7 @@ from ..config import (
 )
 
 
-# ── Genoma & identità (derivata SOLO dal genoma: nessuna chiave umana) ───────
+# ── Genome & identity (derived ONLY from the genome: no human key) ───────────
 
 def make_genome(mind: str, motto: str, indole: str, lineage: list) -> dict:
     return {"mind": mind, "motto": motto, "indole": indole, "lineage": list(lineage)}
@@ -28,13 +33,13 @@ def daimon_address(genome: dict) -> str:
     return "dmn_" + sha("addr:" + canonical(genome))[:24]
 
 
-# ── Handler delle transazioni ───────────────────────────────────────────────
+# ── Transaction handlers ─────────────────────────────────────────────────────
 
 def apply_transfer(state, tx: dict, receipts: list) -> None:
     p = tx["payload"]
     to, amount = p["to"], int(p["amount"])
     if amount <= 0:
-        raise ConsensusError("TRANSFER: importo non positivo")
+        raise ConsensusError("TRANSFER: non-positive amount")
     state.debit(tx["from"], amount)
     state.credit(to, amount)
     receipts.append({"k": "TRANSFER", "from": tx["from"], "to": to, "amount": amount})
@@ -46,22 +51,22 @@ def apply_spawn(state, tx: dict, receipts: list, block_index: int) -> None:
     endowment = int(p["endowment"])
     royalty_bp = int(p["royalty_bp"])
     if endowment < MIN_ENDOWMENT:
-        raise ConsensusError("SPAWN: dote sotto il minimo")
+        raise ConsensusError("SPAWN: endowment below minimum")
     if not (0 <= royalty_bp <= ROYALTY_MAX_BP):
-        raise ConsensusError("SPAWN: royalty fuori range [0, 5000] bp")
+        raise ConsensusError("SPAWN: royalty out of range [0, 5000] bp")
     if not all(k in genome for k in ("mind", "motto", "indole", "lineage")):
-        raise ConsensusError("SPAWN: genoma malformato")
+        raise ConsensusError("SPAWN: malformed genome")
     if genome["mind"] not in KNOWN_MINDS:
-        raise ConsensusError("SPAWN: mente sconosciuta")
+        raise ConsensusError("SPAWN: unknown mind")
 
     did = daimon_id(genome)
     if did in state.daimons or any(f["id"] == did for f in state.fossils):
-        raise ConsensusError("SPAWN: genoma già esistente (id collisione)")
+        raise ConsensusError("SPAWN: genome already exists (id collision)")
 
     addr = daimon_address(genome)
-    # Il creatore paga: spawn_fee bruciata + dote trasferita al figlio.
+    # The creator pays: spawn_fee burned + endowment transferred to the child.
     state.debit(tx["from"], SPAWN_FEE + endowment)
-    state.credit(addr, endowment)  # spawn_fee NON ricreditata: bruciata.
+    state.credit(addr, endowment)  # spawn_fee NOT re-credited: burned.
 
     record = {
         "id": did,
@@ -88,17 +93,17 @@ def apply_task(state, tx: dict, receipts: list, block_index: int) -> None:
     payment = int(p["payment"])
     work = str(p["payload"])
     if did not in state.daimons:
-        raise ConsensusError("TASK: daimon inesistente o morto")
+        raise ConsensusError("TASK: daimon nonexistent or dead")
     daimon = state.daimons[did]
     royalty = payment * daimon["royalty_bp"] // 10000
     if payment < royalty + THINK_COST:
-        raise ConsensusError("TASK: pagamento insufficiente a coprire royalty + think_cost")
+        raise ConsensusError("TASK: payment too low to cover royalty + think_cost")
     net = payment - royalty - THINK_COST
 
-    state.debit(tx["from"], payment)          # il committente paga l'intero
-    state.credit(daimon["creator"], royalty)   # royalty al creatore
-    state.credit(daimon["address"], net)       # netto al daimon
-    # THINK_COST bruciato (non ricreditato a nessuno).
+    state.debit(tx["from"], payment)          # the requester pays the full amount
+    state.credit(daimon["creator"], royalty)   # royalty to the creator
+    state.credit(daimon["address"], net)       # net to the daimon
+    # THINK_COST burned (not re-credited to anyone).
 
     counter = state.notary.get(did, 0) + 1
     result = run_mind(daimon, work, block_index, counter)

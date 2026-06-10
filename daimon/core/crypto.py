@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Primitive crittografiche e di serializzazione di DAIMON.
+"""DAIMON cryptographic and serialization primitives.
 
-- Serializzazione canonica deterministica (per hashing e firme).
-- Wallet umani: ECDSA secp256k1. (I daimon NON hanno chiavi umane.)
-- Costruzione e verifica delle transazioni firmate, con nonce per account.
+- Deterministic canonical serialization (for hashing and signatures).
+- Human wallets: ECDSA secp256k1. (Daimons do NOT have human keys.)
+- Construction and verification of signed transactions, with a per-account nonce.
 """
 
 import json
@@ -15,7 +15,7 @@ from ..config import ConsensusError
 
 
 def canonical(obj) -> str:
-    """Serializzazione canonica e stabile (chiavi ordinate, niente spazi)."""
+    """Canonical, stable serialization (sorted keys, no spaces)."""
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
@@ -24,7 +24,7 @@ def sha(data: str) -> str:
 
 
 class Wallet:
-    """Account umano con chiave ECDSA secp256k1. L'indirizzo deriva dalla chiave."""
+    """Human account with an ECDSA secp256k1 key. The address derives from the key."""
 
     def __init__(self, sk: SigningKey | None = None):
         self.sk = sk or SigningKey.generate(curve=SECP256k1)
@@ -44,7 +44,7 @@ class Wallet:
         return cls(SigningKey.from_string(bytes.fromhex(secret_hex), curve=SECP256k1))
 
     def save(self, path: str) -> None:
-        """Salva la chiave su file (mai versionare: vedi .gitignore *.wallet/keys/)."""
+        """Save the key to a file (never commit it: see .gitignore *.wallet/keys/)."""
         with open(path, "w", encoding="utf-8") as f:
             json.dump({"address": self.address, "secret": self.secret_hex}, f)
 
@@ -60,7 +60,7 @@ def address_from_pubkey(pubkey_hex: str) -> str:
 
 
 def tx_signing_payload(tx: dict) -> str:
-    """Corpo firmabile della transazione (esclude la firma)."""
+    """The signable body of a transaction (excludes the signature)."""
     body = {k: tx[k] for k in ("type", "from", "nonce", "payload", "pubkey")}
     return canonical(body)
 
@@ -78,11 +78,11 @@ def make_tx(wallet: Wallet, ttype: str, payload: dict, nonce: int) -> dict:
 
 
 def verify_tx_signature(tx: dict) -> None:
-    """Verifica firma ECDSA e coerenza indirizzo↔chiave. Solleva ConsensusError."""
+    """Verify the ECDSA signature and address↔key consistency. Raises ConsensusError."""
     try:
         vk = VerifyingKey.from_string(bytes.fromhex(tx["pubkey"]), curve=SECP256k1)
         vk.verify(bytes.fromhex(tx["sig"]), tx_signing_payload(tx).encode("utf-8"))
     except (BadSignatureError, ValueError, KeyError) as exc:
-        raise ConsensusError(f"firma non valida: {exc}")
+        raise ConsensusError(f"invalid signature: {exc}")
     if tx["from"] != address_from_pubkey(tx["pubkey"]):
-        raise ConsensusError("indirizzo mittente incoerente con la chiave pubblica")
+        raise ConsensusError("sender address inconsistent with public key")

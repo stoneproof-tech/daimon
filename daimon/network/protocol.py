@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Protocollo di linea di DAIMON-P2P: messaggi JSON delimitati da newline.
+"""DAIMON-P2P line protocol: newline-delimited JSON messages.
 
-Trasporto: TCP/asyncio. Ogni messaggio è una riga JSON UTF-8 terminata da '\n'.
-Tipi di messaggio:
-  HELLO    {height, tip}        — handshake / heartbeat anti-entropia
-  GETCHAIN {}                   — richiesta della catena completa
-  CHAIN    {blocks}             — risposta con la catena (per sync e fork-resolution)
-  BLOCK    {block}              — gossip di un nuovo blocco
-  TX       {tx}                 — gossip di una transazione per la mempool
+Transport: TCP/asyncio. Each message is one UTF-8 JSON line terminated by '\n'.
+Message types:
+  HELLO    {height, tip}        — handshake / anti-entropy heartbeat
+  GETCHAIN {}                   — request for the full chain
+  CHAIN    {blocks}             — response with the chain (for sync and fork resolution)
+  BLOCK    {block}              — gossip of a new block
+  TX       {tx}                 — gossip of a transaction for the mempool
+
+The message tags and field names are the wire format (shared between nodes); the
+ProtocolError texts are diagnostics only.
 """
 
 import json
@@ -24,7 +27,7 @@ KNOWN_TYPES = (HELLO, GETCHAIN, CHAIN, BLOCK, TX)
 
 
 class ProtocolError(Exception):
-    """Messaggio in ingresso malformato o ostile: il mittente va disconnesso."""
+    """Malformed or hostile inbound message: the sender must be disconnected."""
 
 
 def encode(msg: dict) -> bytes:
@@ -35,9 +38,9 @@ def decode(line: bytes) -> dict:
     return json.loads(line.decode("utf-8"))
 
 
-# ── Validazione rigorosa dei messaggi in ingresso ────────────────────────────
-# Ogni messaggio dalla rete passa di qui PRIMA di toccare la chain: tipi, forma e
-# dimensioni. Tutto ciò che non rispetta lo schema solleva ProtocolError.
+# ── Strict validation of inbound messages ────────────────────────────────────
+# Every message from the network passes here BEFORE touching the chain: type, shape
+# and sizes. Anything that does not match the schema raises ProtocolError.
 
 def _is_int(x) -> bool:
     return isinstance(x, int) and not isinstance(x, bool)
@@ -58,12 +61,12 @@ _TX_SCHEMA = {
 
 def _check(obj, schema, what: str) -> None:
     if not isinstance(obj, dict):
-        raise ProtocolError(f"{what}: atteso oggetto")
+        raise ProtocolError(f"{what}: expected object")
     for key, ok in schema.items():
         if key not in obj:
-            raise ProtocolError(f"{what}: campo mancante '{key}'")
+            raise ProtocolError(f"{what}: missing field '{key}'")
         if not ok(obj[key]):
-            raise ProtocolError(f"{what}: tipo errato per '{key}'")
+            raise ProtocolError(f"{what}: wrong type for '{key}'")
 
 
 def validate_tx(tx) -> None:
@@ -71,38 +74,38 @@ def validate_tx(tx) -> None:
 
 
 def validate_block(b) -> None:
-    _check(b, _BLOCK_SCHEMA, "blocco")
+    _check(b, _BLOCK_SCHEMA, "block")
     if len(b["txs"]) > NET_MAX_TXS_PER_BLOCK:
-        raise ProtocolError("blocco: troppe transazioni")
+        raise ProtocolError("block: too many transactions")
     for tx in b["txs"]:
         validate_tx(tx)
 
 
 def validate_message(msg, max_chain_blocks: int = NET_MAX_CHAIN_BLOCKS) -> str:
-    """Valida forma/tipi/dimensioni di un messaggio. Ritorna il tipo; solleva ProtocolError."""
+    """Validate a message's shape/types/sizes. Returns the type; raises ProtocolError."""
     if not isinstance(msg, dict):
-        raise ProtocolError("messaggio non è un oggetto")
+        raise ProtocolError("message is not an object")
     t = msg.get("t")
     if t not in KNOWN_TYPES:
-        raise ProtocolError(f"tipo sconosciuto: {t!r}")
+        raise ProtocolError(f"unknown type: {t!r}")
     if t == HELLO:
         if not _is_int(msg.get("height")) or msg["height"] < 0:
-            raise ProtocolError("HELLO: height non valido")
+            raise ProtocolError("HELLO: invalid height")
         if not _is_str(msg.get("tip")):
-            raise ProtocolError("HELLO: tip non valido")
+            raise ProtocolError("HELLO: invalid tip")
     elif t == CHAIN:
         blocks = msg.get("blocks")
         if not isinstance(blocks, list):
-            raise ProtocolError("CHAIN: blocks non è una lista")
+            raise ProtocolError("CHAIN: blocks is not a list")
         if len(blocks) > max_chain_blocks:
-            raise ProtocolError("CHAIN: catena troppo lunga")
+            raise ProtocolError("CHAIN: chain too long")
         for b in blocks:
             validate_block(b)
     elif t == BLOCK:
         validate_block(msg.get("block"))
     elif t == TX:
         validate_tx(msg.get("tx"))
-    # GETCHAIN non ha campi
+    # GETCHAIN has no fields
     return t
 
 

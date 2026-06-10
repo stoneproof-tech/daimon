@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Entry-point di compatibilità: la logica vive ora nel package `daimon/`.
+"""Compatibility entry-point: the logic now lives in the `daimon/` package.
 
-    python daimon_chain.py        # esegue la demo in 7 atti
-    python -m daimon.demo         # equivalente
+    python daimon_chain.py        # runs the 7-act demo
+    python -m daimon.demo         # equivalent
 
-Il nucleo di consenso è in daimon/core/ (crypto, minds, tx, state, chain),
-i parametri in daimon/config.py.
+The consensus core is in daimon/core/ (crypto, minds, tx, state, chain), the
+parameters in daimon/config.py.
 """
 
 from daimon.demo import demo

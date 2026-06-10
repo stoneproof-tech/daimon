@@ -14,7 +14,7 @@ from daimon.config import DMN
 from daimon.core import Wallet, Blockchain, make_tx, make_genome, daimon_id
 from daimon.network import Node
 from daimon.network.client import fetch_chain, push_tx
-from daimon.cli import dmn_to_gocce, parse_connect, parse_peers
+from daimon.cli import dmn_to_drops, parse_connect, parse_peers
 
 
 def test_wallet_roundtrip(tmp_path):
@@ -26,11 +26,11 @@ def test_wallet_roundtrip(tmp_path):
     assert w2.secret_hex == w.secret_hex
 
 
-def test_dmn_to_gocce():
-    assert dmn_to_gocce("5") == 5 * DMN
-    assert dmn_to_gocce("5.250") == 5250
-    assert dmn_to_gocce("0.001") == 1
-    assert dmn_to_gocce("20") == 20 * DMN
+def test_dmn_to_drops():
+    assert dmn_to_drops("5") == 5 * DMN
+    assert dmn_to_drops("5.250") == 5250
+    assert dmn_to_drops("0.001") == 1
+    assert dmn_to_drops("20") == 20 * DMN
 
 
 def test_parse_helpers():

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Nucleo di consenso di DAIMON: crypto, menti, transazioni, stato, catena."""
+"""DAIMON consensus core: crypto, minds, transactions, state, chain."""
 
 from .crypto import (
     Wallet, canonical, sha, make_tx, verify_tx_signature, address_from_pubkey,

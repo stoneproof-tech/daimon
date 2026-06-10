@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Demo in 7 atti di DAIMON. Separata dal nucleo di consenso.
+"""DAIMON 7-act demo. Separate from the consensus core.
 
     python -m daimon.demo
 """
@@ -12,7 +12,7 @@ from .config import (
 from .core import Wallet, Blockchain, make_tx, make_genome, daimon_id, daimon_address
 from .core.chain import mine_nonce
 
-# Console Windows: forza UTF-8 per manifesto greco / simboli.
+# Windows console: force UTF-8 for the Greek manifesto / symbols.
 try:
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -28,47 +28,47 @@ def _hr(title: str) -> None:
 
 def _census(chain: Blockchain) -> None:
     st = chain.tip_state
-    print(f"  Altezza catena : {chain.height} blocchi")
-    print(f"  Difficoltà tip : {chain.blocks[-1]['difficulty']} (retargeting ogni N blocchi)")
-    print(f"  Supply totale  : {fmt(st.supply())}   (S* = {fmt(S_STAR)})")
+    print(f"  Chain height  : {chain.height} blocks")
+    print(f"  Tip difficulty: {chain.blocks[-1]['difficulty']} (retargeting every N blocks)")
+    print(f"  Total supply  : {fmt(st.supply())}   (S* = {fmt(S_STAR)})")
     pct = st.supply() * 100 // S_STAR if S_STAR else 0
-    print(f"  Convergenza    : {pct}% di S*")
-    print(f"  Daimon vivi    : {len(st.daimons)}    Fossili: {len(st.fossils)}")
+    print(f"  Convergence   : {pct}% of S*")
+    print(f"  Living daimons: {len(st.daimons)}    Fossils: {len(st.fossils)}")
     if st.daimons:
-        print("  ── vivi ──")
+        print("  ── living ──")
         for did in sorted(st.daimons):
             d = st.daimons[did]
             bal = st.balances.get(d["address"], 0)
             print(f"    {d['name']:<14} [{d['mind']:<11}] gen{d['generation']} "
-                  f"task={d['tasks']} royalty={d['royalty_bp']/100:.0f}% saldo={fmt(bal)}")
+                  f"tasks={d['tasks']} royalty={d['royalty_bp']/100:.0f}% balance={fmt(bal)}")
     if st.fossils:
-        print("  ── fossili ──")
+        print("  ── fossils ──")
         for f in st.fossils:
             print(f"    † {f['name']:<14} [{f['mind']:<11}] gen{f['generation']} "
-                  f"nato@{f['born']} morto@{f['died']} ultimo_saldo={fmt(f['last_balance'])}")
+                  f"born@{f['born']} died@{f['died']} last_balance={fmt(f['last_balance'])}")
 
 
 def demo() -> None:
     chain = Blockchain()
 
-    _hr("ATTO I — FAIR LAUNCH (genesi, zero premine)")
-    print("  Manifesto inciso nella genesi:\n")
+    _hr("ACT I — FAIR LAUNCH (genesis, zero premine)")
+    print("  Manifesto engraved in genesis:\n")
     print("   «" + MANIFESTO + "»\n")
-    print(f"  Supply alla genesi: {fmt(chain.tip_state.supply())}  → nessuna moneta preesistente.")
-    print(f"  Equilibrio teorico S* = R/r = {fmt(EMISSION)} / 0.02 = {fmt(S_STAR)}")
+    print(f"  Supply at genesis: {fmt(chain.tip_state.supply())}  → no pre-existing coin.")
+    print(f"  Theoretical equilibrium S* = R/r = {fmt(EMISSION)} / 0.02 = {fmt(S_STAR)}")
 
     founder = Wallet()
     ts = 1_700_000_000
     for _ in range(8):
         ts += 60
         chain.mine_block(founder.address, [], timestamp=ts)
-    print(f"\n  Il fondatore ha coniato 8 blocchi. Saldo fondatore: "
+    print(f"\n  The founder mined 8 blocks. Founder balance: "
           f"{fmt(chain.tip_state.balances.get(founder.address, 0))}")
 
-    _hr("ATTO II — NASCITA DEI DAIMON (SPAWN, genoma immutabile)")
-    g_pythia = make_genome("ORACLE_MATH", "Tutto è numero", "rigorosa", [])
-    g_mnemo  = make_genome("NOTARY", "Ciò che è inciso resta", "meticolosa", [])
-    g_hermes = make_genome("SCRIBE", "Porto parole tra i mondi", "ironico", [])
+    _hr("ACT II — BIRTH OF THE DAIMONS (SPAWN, immutable genome)")
+    g_pythia = make_genome("ORACLE_MATH", "All is number", "rigorous", [])
+    g_mnemo  = make_genome("NOTARY", "What is engraved remains", "meticulous", [])
+    g_hermes = make_genome("SCRIBE", "I carry words between worlds", "ironic", [])
     n = chain.tip_state.nonces.get(founder.address, 0)
     spawn_txs = [
         make_tx(founder, "SPAWN", {"name": "Pythia", "genome": g_pythia,
@@ -82,11 +82,11 @@ def demo() -> None:
     blk = chain.mine_block(founder.address, spawn_txs, timestamp=ts)
     for r in blk["receipts"]:
         if r["k"] == "SPAWN":
-            print(f"  ✦ Nasce {r['name']:<8} [{r['mind']:<11}] id={r['id']}  dote={fmt(r['endowment'])}")
+            print(f"  ✦ Born {r['name']:<8} [{r['mind']:<11}] id={r['id']}  endowment={fmt(r['endowment'])}")
     pid, mid, hid = daimon_id(g_pythia), daimon_id(g_mnemo), daimon_id(g_hermes)
 
-    _hr("ATTO III — LAVORI PAGATI (TASK, menti deterministiche)")
-    jobs = [(pid, "2**10 + 24"), (mid, "contratto-alfa:2026-06-10"), (hid, "benvenuti nel fiume")]
+    _hr("ACT III — PAID WORK (TASK, deterministic minds)")
+    jobs = [(pid, "2**10 + 24"), (mid, "contract-alpha:2026-06-10"), (hid, "welcome to the river")]
     for did, work in jobs:
         n = chain.tip_state.nonces.get(founder.address, 0)
         tx = make_tx(founder, "TASK", {"daimon": did, "payload": work, "payment": 12 * DMN}, n)
@@ -94,10 +94,10 @@ def demo() -> None:
         blk = chain.mine_block(founder.address, [tx], timestamp=ts)
         r = [r for r in blk["receipts"] if r["k"] == "TASK"][0]
         print(f"  → {r['mind']:<11} '{work}'")
-        print(f"      risultato: {r['result']}")
-        print(f"      pagamento={fmt(r['payment'])}  royalty→creatore={fmt(r['royalty'])}  netto→daimon={fmt(r['net'])}")
+        print(f"      result: {r['result']}")
+        print(f"      payment={fmt(r['payment'])}  royalty→creator={fmt(r['royalty'])}  net→daimon={fmt(r['net'])}")
 
-    _hr("ATTO IV — RIPRODUZIONE DI PYTHIA (≥50 DMN e ≥3 task ⇒ figlio mutato)")
+    _hr("ACT IV — REPRODUCTION OF PYTHIA (≥50 DMN and ≥3 tasks ⇒ mutated child)")
     born_child = None
     for k in range(12):
         n = chain.tip_state.nonces.get(founder.address, 0)
@@ -107,15 +107,15 @@ def demo() -> None:
         births = [r for r in blk["receipts"] if r["k"] == "BIRTH"]
         if births:
             born_child = births[0]
-            print(f"  ✦✦ Pythia si riproduce al blocco {blk['index']}: "
-                  f"nasce {born_child['name']} (gen{born_child['gen']}) id={born_child['child']}")
+            print(f"  ✦✦ Pythia reproduces at block {blk['index']}: "
+                  f"born {born_child['name']} (gen{born_child['gen']}) id={born_child['child']}")
             break
     if not born_child:
-        print("  (riproduzione non avvenuta nei tentativi della demo)")
+        print("  (reproduction did not happen within the demo's attempts)")
 
-    _hr("ATTO V — MORTE DI HERMES PER INEDIA (saldo < 0.5 DMN ⇒ FOSSILE)")
-    print("  Hermes non riceve più lavoro: demurrage + metabolismo lo prosciugano.")
-    print(f"  Saldo iniziale di Hermes: {fmt(chain.tip_state.balances.get(daimon_address(g_hermes), 0))}")
+    _hr("ACT V — DEATH OF HERMES BY STARVATION (balance < 0.5 DMN ⇒ FOSSIL)")
+    print("  Hermes receives no more work: demurrage + metabolism drain it.")
+    print(f"  Hermes' initial balance: {fmt(chain.tip_state.balances.get(daimon_address(g_hermes), 0))}")
     died_at = None
     for _ in range(120):
         ts += 60
@@ -125,27 +125,27 @@ def demo() -> None:
             break
     if died_at:
         foss = [f for f in chain.tip_state.fossils if f["id"] == hid][0]
-        print(f"  † Hermes muore al blocco {died_at} (ultimo saldo {fmt(foss['last_balance'])}) → FOSSILE.")
+        print(f"  † Hermes dies at block {died_at} (last balance {fmt(foss['last_balance'])}) → FOSSIL.")
     else:
-        print("  (Hermes ancora vivo dopo la finestra della demo)")
+        print("  (Hermes still alive after the demo window)")
 
-    _hr("ATTO VI — CENSIMENTO")
+    _hr("ACT VI — CENSUS")
     _census(chain)
 
-    _hr("ATTO VII — MANOMISSIONE RILEVATA + CONVERGENZA A S*")
+    _hr("ACT VII — TAMPERING DETECTED + CONVERGENCE TO S*")
     ok, msg = chain.is_valid()
-    print(f"  Validazione (replay totale): {ok} — {msg}")
+    print(f"  Validation (full replay): {ok} — {msg}")
 
     import copy as _copy
     forged = _copy.deepcopy(chain.blocks)
     victim = 11
-    forged[victim]["receipts"][0]["result"] = "MANOMESSO"
+    forged[victim]["receipts"][0]["result"] = "TAMPERED"
     nonce, _ = mine_nonce({k: v for k, v in forged[victim].items() if k != "nonce"})
-    forged[victim]["nonce"] = nonce  # PoW di nuovo valida: l'header "sembra" autentico
+    forged[victim]["nonce"] = nonce  # PoW valid again: the header "looks" authentic
     ok2, msg2 = Blockchain.validate_chain(forged)
-    print(f"  Ricevuta del blocco {victim} forgiata + PoW ri-coniata → {ok2} — {msg2}")
+    print(f"  Block {victim} receipt forged + PoW re-mined → {ok2} — {msg2}")
 
-    print("\n  Conio di blocchi vuoti fino alla convergenza della supply verso S*...")
+    print("\n  Mining empty blocks until the supply converges to S*...")
     target = S_STAR * 99 // 100
     start_h = chain.height
     while chain.tip_state.supply() < target and chain.height - start_h < 400:
@@ -153,12 +153,12 @@ def demo() -> None:
         chain.mine_block(founder.address, [], timestamp=ts)
     st = chain.tip_state
     pct = st.supply() * 100 // S_STAR
-    print(f"  Altezza: {chain.height} blocchi  |  Supply: {fmt(st.supply())}  =  {pct}% di S*")
-    print(f"  (S* = {fmt(S_STAR)} — la materia inerte evapora, l'equilibrio emerge dalla fisica.)")
+    print(f"  Height: {chain.height} blocks  |  Supply: {fmt(st.supply())}  =  {pct}% of S*")
+    print(f"  (S* = {fmt(S_STAR)} — inert matter evaporates, equilibrium emerges from physics.)")
 
     ok3, msg3 = chain.is_valid()
-    print(f"\n  Validazione finale: {ok3} — {msg3}")
-    _hr("FINE — Πάντα ῥεῖ")
+    print(f"\n  Final validation: {ok3} — {msg3}")
+    _hr("END — Πάντα ῥεῖ")
 
 
 if __name__ == "__main__":

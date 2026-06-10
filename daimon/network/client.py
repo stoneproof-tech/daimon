@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Client leggero verso un nodo DAIMON in esecuzione (usato dalla CLI).
+"""Lightweight client to a running DAIMON node (used by the CLI).
 
-Riusa il protocollo P2P: si connette via TCP, scarica la catena (GETCHAIN/CHAIN)
-oppure immette una transazione (TX) nella mempool del nodo, che la gossipa.
+Reuses the P2P protocol: connects over TCP and either downloads the chain
+(GETCHAIN/CHAIN) or injects a transaction (TX) into the node's mempool, which the
+node gossips.
 """
 
 import asyncio
@@ -10,13 +11,13 @@ import asyncio
 from . import protocol as p
 from ..config import NET_MAX_MSG_BYTES
 
-# Stesso motivo del nodo: il messaggio CHAIN è una riga JSON che può superare i
-# 64 KB di default di asyncio su catene lunghe. Allineato al tetto del nodo.
+# Same reason as the node: a CHAIN message is one JSON line that can exceed asyncio's
+# default 64 KB limit on long chains. Aligned with the node's cap.
 STREAM_LIMIT = NET_MAX_MSG_BYTES
 
 
 async def fetch_chain(host: str, port: int, timeout: float = 15.0) -> list:
-    """Scarica la catena completa dal nodo. Ritorna la lista dei blocchi."""
+    """Download the full chain from the node. Returns the list of blocks."""
     reader, writer = await asyncio.open_connection(host, port, limit=STREAM_LIMIT)
     try:
         writer.write(p.encode(p.m_getchain()))
@@ -37,12 +38,12 @@ async def fetch_chain(host: str, port: int, timeout: float = 15.0) -> list:
 
 
 async def push_tx(host: str, port: int, tx: dict, settle: float = 0.4) -> None:
-    """Immette una transazione nel nodo (che la aggiunge alla mempool e la gossipa)."""
+    """Inject a transaction into the node (which adds it to the mempool and gossips it)."""
     reader, writer = await asyncio.open_connection(host, port, limit=STREAM_LIMIT)
     try:
         writer.write(p.encode(p.m_tx(tx)))
         await writer.drain()
-        await asyncio.sleep(settle)  # lascia propagare prima di chiudere
+        await asyncio.sleep(settle)  # let it propagate before closing
     finally:
         writer.close()
         try:

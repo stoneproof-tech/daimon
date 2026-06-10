@@ -1,78 +1,80 @@
 # -*- coding: utf-8 -*-
-"""Costanti e parametri di consenso di DAIMON.
+"""DAIMON consensus constants and parameters.
 
-Tutto in gocce (interi). 1 DMN = 1000 gocce. Mai float nel consenso.
-Questi valori sono parte del consenso: cambiarli cambia la catena.
+Everything in drops (integers). 1 DMN = 1000 drops. No floats in consensus.
+These values are part of consensus: changing them changes the chain.
 """
 
-DMN = 1000  # gocce per 1 DMN
+DMN = 1000  # drops per 1 DMN
 
 # ── Proof-of-Work + difficulty retargeting (Milestone 3) ────────────────────
-# La difficoltà è un intero D ≥ 1: un blocco è valido se int(hash,16) ≤ MAX_HASH//D.
-# D = 4096 equivale a "3 zeri hex" (target = 2^256 / 4096 = 2^244), la difficoltà
-# di partenza. Il retargeting riadatta D ogni RETARGET_INTERVAL blocchi puntando a
-# TARGET_BLOCK_TIME secondi/blocco, con fattore di aggiustamento limitato (clamp 4x).
+# Difficulty is an integer D ≥ 1: a block is valid if int(hash,16) ≤ MAX_HASH//D.
+# D = 4096 is equivalent to "3 hex zeros" (target = 2^256 / 4096 = 2^244), the
+# starting difficulty. Retargeting re-tunes D every RETARGET_INTERVAL blocks toward
+# TARGET_BLOCK_TIME seconds/block, with a bounded adjustment factor (4x clamp).
 MAX_HASH          = 1 << 256
-BASE_DIFFICULTY   = 4096       # difficoltà della genesi (≈ 3 zeri hex)
-RETARGET_INTERVAL = 10         # riadatta la difficoltà ogni N blocchi
-TARGET_BLOCK_TIME = 60         # secondi/blocco desiderati
-RETARGET_CLAMP    = 4          # la difficoltà non può variare più di 4x per finestra
+BASE_DIFFICULTY   = 4096       # genesis difficulty (≈ 3 hex zeros)
+RETARGET_INTERVAL = 10         # retarget difficulty every N blocks
+TARGET_BLOCK_TIME = 60         # desired seconds/block
+RETARGET_CLAMP    = 4          # difficulty cannot vary more than 4x per window
 
-EMISSION       = 50 * DMN     # emissione costante al miner per blocco (no halving, no cap)
-DEMURRAGE_NUM  = 98           # entropia: saldo ← saldo * 98 // 100 ogni blocco, su tutti i conti
+EMISSION       = 50 * DMN     # constant emission to the miner per block (no halving, no cap)
+DEMURRAGE_NUM  = 98           # entropy: balance ← balance * 98 // 100 each block, on every account
 DEMURRAGE_DEN  = 100
 
-# ── Ciclo vitale dei daimon ─────────────────────────────────────────────────
-SPAWN_FEE       = 5 * DMN     # bruciata alla nascita di un daimon
-MIN_ENDOWMENT   = 20 * DMN    # dote minima alla nascita
-THINK_COST      = 2 * DMN     # bruciato per ogni TASK
-UPKEEP          = 1 * DMN     # metabolismo: bruciato ogni blocco per daimon vivo
-DEATH_THRESHOLD = DMN // 2    # 0.5 DMN: sotto questa soglia il daimon muore (FOSSILE)
+# ── Daimon lifecycle ────────────────────────────────────────────────────────
+SPAWN_FEE       = 5 * DMN     # burned at a daimon's birth
+MIN_ENDOWMENT   = 20 * DMN    # minimum endowment at birth
+THINK_COST      = 2 * DMN     # burned per TASK
+UPKEEP          = 1 * DMN     # metabolism: burned each block per living daimon
+DEATH_THRESHOLD = DMN // 2    # 0.5 DMN: below this threshold the daimon dies (FOSSIL)
 
-REPRO_BALANCE  = 50 * DMN     # riproduzione: saldo minimo
-REPRO_TASKS    = 3            # riproduzione: task minimi svolti
-CHILD_DOTE     = 25 * DMN     # dote trasferita al figlio
-ROYALTY_MAX_BP = 5000         # royalty massima: 50% in basis points
+REPRO_BALANCE  = 50 * DMN     # reproduction: minimum balance
+REPRO_TASKS    = 3            # reproduction: minimum tasks performed
+CHILD_DOTE     = 25 * DMN     # endowment transferred to the child
+ROYALTY_MAX_BP = 5000         # maximum royalty: 50% in basis points
 
-# ── Genesi ──────────────────────────────────────────────────────────────────
+# ── Genesis ─────────────────────────────────────────────────────────────────
 GENESIS_PREV = "0" * 64
-# Epoca di lancio incisa nella genesi (Unix). Dà un riferimento temporale realistico
-# alla prima finestra di retargeting (altrimenti falsata da un timestamp 0).
+# Launch epoch engraved in genesis (Unix). Gives a realistic time reference to the
+# first retargeting window (otherwise skewed by a timestamp of 0).
 GENESIS_TS = 1_700_000_000
+# CONSENSUS-FROZEN: the genesis manifesto is a consensus rule. Changing a single byte
+# forks the chain. NEVER translate or edit it. (Meaning is glossed in the README.)
 MANIFESTO = (
     "Πάντα ῥεῖ — nessuno si bagna due volte nello stesso fiume. "
     "Qui la materia inerte evapora e solo ciò che lavora persiste. "
     "Wörgl 1932 → Daimon 2026. Fair launch: nessun emittente, solo la sorgente."
 )
 
-# Equilibrio teorico della supply: S* = R / r = EMISSION / (1 - DEMURRAGE_NUM/DEMURRAGE_DEN).
-S_STAR = (EMISSION * DEMURRAGE_DEN) // (DEMURRAGE_DEN - DEMURRAGE_NUM)  # = 2500 DMN in gocce
+# Theoretical supply equilibrium: S* = R / r = EMISSION / (1 - DEMURRAGE_NUM/DEMURRAGE_DEN).
+S_STAR = (EMISSION * DEMURRAGE_DEN) // (DEMURRAGE_DEN - DEMURRAGE_NUM)  # = 2500 DMN in drops
 
-# Menti riconosciute dal protocollo.
+# Minds recognized by the protocol.
 KNOWN_MINDS = ("ORACLE_MATH", "NOTARY", "SCRIBE")
 
-# ── Rete: limiti di sicurezza del nodo (la porta del seed riceve traffico ostile) ──
-# Difensivi, non di consenso: un nodo può irrigidirli senza rompere la rete.
-NET_MAX_MSG_BYTES     = 32 * 1024 * 1024  # tetto a una singola riga/messaggio (anti OOM)
-NET_MAX_CHAIN_BLOCKS  = 50_000            # blocchi massimi accettati in un messaggio CHAIN
-NET_MAX_TXS_PER_BLOCK = 10_000            # tx massime in un blocco ricevuto
-NET_MAX_PEERS         = 256               # connessioni totali simultanee
-NET_MAX_CONN_PER_IP   = 64                # connessioni simultanee dallo stesso IP
-NET_RATE_WINDOW       = 10.0              # finestra (s) del rate limiting per connessione
-NET_RATE_MAX          = 300               # messaggi massimi per finestra per connessione
-NET_HANDSHAKE_TIMEOUT = 10.0             # s entro cui deve arrivare il primo messaggio
-NET_READ_TIMEOUT      = 30.0             # s di inattività oltre cui si chiude la connessione
-NET_MAX_STRIKES       = 5                 # infrazioni per IP prima del ban temporaneo
-NET_BAN_SECONDS       = 60.0             # durata del ban temporaneo di un IP
-NET_MAX_MEMPOOL       = 10_000           # tx massime tenute in mempool
+# ── Network: node security limits (the seed's port receives hostile traffic) ──
+# Defensive, not consensus: a node may tighten these without breaking the network.
+NET_MAX_MSG_BYTES     = 32 * 1024 * 1024  # cap on a single line/message (anti-OOM)
+NET_MAX_CHAIN_BLOCKS  = 50_000            # max blocks accepted in a CHAIN message
+NET_MAX_TXS_PER_BLOCK = 10_000            # max txs in a received block
+NET_MAX_PEERS         = 256               # max simultaneous connections (total)
+NET_MAX_CONN_PER_IP   = 64                # max simultaneous connections from one IP
+NET_RATE_WINDOW       = 10.0              # rate-limiting window (s) per connection
+NET_RATE_MAX          = 300               # max messages per window per connection
+NET_HANDSHAKE_TIMEOUT = 10.0             # s within which the first message must arrive
+NET_READ_TIMEOUT      = 30.0             # s of inactivity after which the connection closes
+NET_MAX_STRIKES       = 5                 # strikes per IP before a temporary ban
+NET_BAN_SECONDS       = 60.0             # duration of an IP's temporary ban
+NET_MAX_MEMPOOL       = 10_000           # max txs kept in the mempool
 
 
 class ConsensusError(Exception):
-    """Violazione delle regole di consenso: il blocco è invalido."""
+    """Consensus-rule violation: the block is invalid."""
 
 
-def fmt(gocce: int) -> str:
-    """Formatta gocce → DMN per la stampa (NON usato nel consenso)."""
-    seg = "-" if gocce < 0 else ""
-    g = abs(int(gocce))
-    return f"{seg}{g // DMN}.{g % DMN:03d} DMN"
+def fmt(drops: int) -> str:
+    """Format drops → DMN for printing (NOT used in consensus)."""
+    sign = "-" if drops < 0 else ""
+    g = abs(int(drops))
+    return f"{sign}{g // DMN}.{g % DMN:03d} DMN"
